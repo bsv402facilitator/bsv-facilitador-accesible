@@ -1,0 +1,320 @@
+# Implementation Plan: Facilitador X402 BSV con Accesibilidad Universal
+
+**Branch**: `001-facilitador-accesible` | **Date**: 2025-11-27 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/specs/001-facilitador-accesible/spec.md`
+
+## Summary
+
+Este feature implementa un facilitador X402 para Bitcoin SV (testnet) con accesibilidad universal, permitiendo que usuarios con discapacidades cognitivas y visuales puedan realizar pagos blockchain a través de clientes LLM (Claude Desktop, ChatGPT). El facilitador se basa en el código existente del facilitador BSV (`C:\Users\andre\programacion\x402\bsv\facilitador`), reorganizando la arquitectura para agregar metadata accesible a todos los responses siguiendo la estrategia LLM-first definida en PLAN.md.
+
+**Enfoque técnico**: Reutilizar la lógica core de verify y settle del facilitador existente, reorganizándola bajo nueva arquitectura que separa concerns y agrega capa de accesibilidad mediante:
+- Tipo genérico `AccessibleResponse<T>` que envuelve todos los responses
+- Helpers en `src/facilitator/accessibility/metadata.ts` para construcción de metadata
+- Mensajes centralizados en español en `src/facilitator/accessibility/i18n.ts`
+- Validación Zod con mensajes customizados en español claro
+- Compatibilidad con TTS (text-to-speech) mediante `audioFriendly` flag
+- Niveles cognitivos (`simple`/`medium`) para adaptar complejidad de mensajes
+
+## Technical Context
+
+**Language/Version**: TypeScript 5.6 (strict mode, target ES2022, module ESNext)
+**Primary Dependencies**:
+- Hono 4.0 (HTTP framework para Cloudflare Workers)
+- @bsv/sdk 1.0 (operaciones criptográficas BSV: validación de transacciones, parsing de direcciones, verificación de redes)
+- Zod 3.22 (validación de schemas con mensajes customizados)
+- @hono/zod-validator 0.4 (integración Zod con Hono)
+
+**Storage**: N/A (facilitador stateless sin persistencia)
+**Testing**: Vitest 2.1 con @vitest/coverage-v8 (coverage threshold >80%)
+**Target Platform**: Cloudflare Workers (nodejs_compat_v2, compatibility_date 2024-11-01)
+**Project Type**: Single (API HTTP stateless)
+**Performance Goals**:
+- /verify <200ms p95 (validación sin red)
+- /settle <2s p95 (incluyendo broadcast a blockchain)
+- /supported <50ms p95 (endpoint informativo)
+
+**Constraints**:
+- Response size <50KB (límites de Cloudflare Workers)
+- Timeout en fetch a WhatsOnChain API: 10 segundos
+- Metadata accesible limitada: plainLanguage ≤100 chars, explanation ≤300 chars, stepByStep ≤5 items de 80 chars
+- Logs a stderr únicamente (no contaminar stdout)
+
+**Scale/Scope**:
+- MVP testnet: ~100 requests/día esperados
+- 2 endpoints principales: /verify, /settle
+- 1 endpoint informativo: /supported
+- ~15 archivos TypeScript en src/facilitator/
+- ~25 tests (unit + integration)
+
+## Constitution Check
+
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+
+### Accessibility (NON-NEGOTIABLE)
+- [x] All system messages in clear Spanish without unnecessary jargon (i18n.ts centraliza mensajes)
+- [x] All errors actionable: what happened + how to resolve + clear suggestion (hints.ifError, hints.nextSteps)
+- [x] All tool responses include accessible metadata (`AccessibleResponse<T>`)
+- [x] Accessible metadata includes: `plainLanguage`, `explanation`, `stepByStep`, `hints`, `language`, `audioFriendly`
+- [x] Complex responses specify `cognitiveLevel` (simple/medium/advanced) (simple para éxitos, medium para errores de red)
+- [x] Important messages have `audioFriendly: true` for TTS compatibility (todos los mensajes de usuario)
+- [x] Documentation uses hierarchical headings, clear examples, step-by-step troubleshooting (EXAMPLES.md)
+
+### Code Quality (NON-NEGOTIABLE)
+- [x] TypeScript strict mode enabled (`strict: true`, `noUncheckedIndexedAccess: true`) (heredado de facilitador base)
+- [x] NO use of `any` (use `unknown` with type guards when needed) (política del proyecto)
+- [x] Maximum cyclomatic complexity: 10 per function (validado en ESLint)
+- [x] TSDoc REQUIRED on all public types, interfaces, and exported functions (verificar en review)
+- [x] ESLint configured with strict rules (flat config, @typescript-eslint 8)
+
+### Testing (NON-NEGOTIABLE)
+- [x] Minimum coverage: 80% (lines, branches, functions, statements) (threshold en vitest.config.ts)
+- [x] Unit tests for all critical business logic (verify, settle, metadata helpers)
+- [x] Integration tests for end-to-end flows (/verify + /settle complete flow)
+- [x] Edge case tests (weak passwords N/A, insufficient funds, invalid inputs, network failures)
+- [x] Tests independent of external state (use mocks/stubs) (mock WhatsOnChain API)
+- [x] Vitest configured with coverage threshold enforcement
+
+### Security (NON-NEGOTIABLE)
+- [N/A] Encryption: AES-256-GCM with Scrypt (N=32768, r=8, p=1) (facilitador no maneja wallets)
+- [N/A] Passwords minimum 8 characters (sin autenticación)
+- [x] WIFs/private keys NEVER in logs or unencrypted responses (solo txids y direcciones públicas)
+- [x] Input validation REQUIRED with Zod before any operation (VerifyRequestSchema, SettleRequestSchema)
+- [x] Errors do NOT reveal sensitive information (mensajes genéricos para errores internos)
+
+### User Experience
+- [x] All system messages centralized in `src/facilitator/accessibility/i18n.ts`
+- [x] Tool responses follow consistent JSON structure (AccessibleResponse<T>)
+- [x] Zod validation has custom messages in Spanish (customErrorMap en types.ts)
+- [x] NO generic messages: prefer specific, actionable error messages (cada error con hints específicos)
+
+### Performance
+- [N/A] Wallet operations (create/import/load) complete in <500ms on average hardware (sin wallets)
+- [x] Balance queries complete in <2s (including network requests) (N/A pero /settle <2s cumple)
+- [N/A] Transaction creation completes in <1s (clientes crean transacciones)
+- [x] Logs written to stderr (don't pollute stdout) (logger.ts usa console.error)
+- [x] Network requests have configurable timeouts (default: 10s) (WhatsOnChain client timeout)
+
+## Project Structure
+
+### Documentation (this feature)
+
+```text
+specs/001-facilitador-accesible/
+├── plan.md              # This file (/speckit.plan command output)
+├── research.md          # Phase 0 output (NOT created yet)
+├── data-model.md        # Phase 1 output (NOT created yet)
+├── quickstart.md        # Phase 1 output (NOT created yet)
+├── contracts/           # Phase 1 output (NOT created yet)
+└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created yet)
+```
+
+### Source Code (repository root)
+
+```text
+src/facilitator/
+├── index.ts                      # Hono app con routes, middleware, error handling
+├── types.ts                      # Zod schemas con mensajes en español + AccessibleResponse<T>
+├── verify.ts                     # Lógica de verificación BSV (reutilizada del facilitador base)
+├── settle.ts                     # Lógica de settlement/broadcast (reutilizada del facilitador base)
+├── whats-on-chain.ts             # Cliente API WhatsOnChain con retry logic y timeout
+├── logger.ts                     # Logs estructurados JSON a stderr
+└── accessibility/
+    ├── metadata.ts               # Helpers para construcción de AccessibleMetadata
+    └── i18n.ts                   # Mensajes centralizados en español (errors, success, explanations, hints)
+
+tests/
+├── unit/
+│   ├── verify.test.ts            # Tests unitarios de lógica de verify
+│   ├── settle.test.ts            # Tests unitarios de lógica de settle
+│   ├── whats-on-chain.test.ts    # Tests de cliente WhatsOnChain con mocks
+│   └── accessibility/
+│       ├── metadata.test.ts      # Tests de helpers de metadata
+│       └── i18n.test.ts          # Tests de mensajes (longitud, claridad)
+└── integration/
+    ├── verify-flow.test.ts       # Test completo de flujo /verify
+    ├── settle-flow.test.ts       # Test completo de flujo /settle
+    └── error-handling.test.ts    # Tests de edge cases y error handling
+
+docs/
+└── EXAMPLES.md                    # Ejemplos de uso del facilitador con clientes LLM
+
+wrangler.toml                      # Config de Cloudflare Workers
+tsconfig.json                      # Config TypeScript (strict mode, ES2022)
+package.json                       # Dependencies y scripts
+vitest.config.ts                   # Config Vitest con coverage thresholds
+eslint.config.js                   # ESLint flat config con @typescript-eslint
+.prettierrc                        # Config Prettier
+```
+
+**Structure Decision**: Se selecciona estructura de proyecto único (single project) porque el facilitador es un servicio HTTP stateless sin frontend ni múltiples componentes. La separación en `src/facilitator/` y `src/facilitator/accessibility/` permite modularización clara entre lógica de negocio BSV (reutilizada) y capa de accesibilidad (nueva). Los tests se organizan en `unit/` e `integration/` para separar tests de funciones individuales vs flujos completos.
+
+## Complexity Tracking
+
+> **Fill ONLY if Constitution Check has violations that must be justified**
+
+*No hay violaciones que justificar. Todos los checkboxes NON-NEGOTIABLE están marcados como [x] o [N/A] con justificación válida.*
+
+---
+
+## Phase 0: Research
+
+### Research Goals
+
+Este feature NO requiere investigación extensiva porque se basa en código existente probado (`C:\Users\andre\programacion\x402\bsv\facilitador`). Las decisiones técnicas ya están tomadas:
+
+1. **Framework HTTP**: Hono 4.0 (ya usado en facilitador base, bien integrado con Cloudflare Workers)
+2. **Librería BSV**: @bsv/sdk 1.0 (estándar para operaciones BSV en TypeScript)
+3. **Validación**: Zod 3.22 (integración con Hono mediante @hono/zod-validator)
+4. **Testing**: Vitest 2.1 (compatible con Cloudflare Workers, soporte nativo para coverage)
+5. **Linting**: ESLint 9 flat config + @typescript-eslint 8
+6. **Deployment**: Cloudflare Workers (nodejs_compat_v2, compatibilidad con @bsv/sdk)
+
+### Key Research Questions (ALREADY ANSWERED)
+
+**Q1: ¿Cómo estructurar la metadata accesible para compatibilidad con múltiples clientes LLM?**
+- **A1**: Usar estructura JSON fija con campos well-known (`plainLanguage`, `explanation`, `stepByStep`, `hints`) que cualquier LLM puede parsear. El documento PLAN.md externo define el estándar. La implementación sigue el patrón `AccessibleResponse<T>` que envuelve el response core con metadata consistente.
+
+**Q2: ¿Cómo validar direcciones BSV y distinguir testnet de mainnet?**
+- **A2**: Usar `@bsv/sdk` método `Address.fromString()` que valida checksum y versión de red automáticamente. Las direcciones testnet tienen prefijos específicos que el SDK detecta. Si la dirección es mainnet, lanzar error con mensaje accesible explicando que debe ser testnet.
+
+**Q3: ¿Cómo implementar retry logic en broadcast sin bloquear demasiado tiempo?**
+- **A3**: Backoff exponencial con máximo 3 intentos: 1s, 2s, 4s = total 7s máximo. Si todos fallan, retornar error con metadata explicando que el problema es temporal y el usuario puede reintentar. Timeout de 10s en cada fetch individual a WhatsOnChain.
+
+**Q4: ¿Cómo detectar transacciones ya broadcasted en sistema stateless?**
+- **A4**: Consultar WhatsOnChain API endpoint `/tx/{txid}` antes de broadcast. Si retorna 200 OK, la transacción ya existe. Si retorna 404, proceder con broadcast. Si la llamada a WhatsOnChain falla, proceder con broadcast de todas formas (si el broadcast falla con error "duplicate", interpretar como ya broadcasted).
+
+**Q5: ¿Qué niveles cognitivos usar en metadata y cuándo?**
+- **A5**: MVP usa solo dos niveles:
+  - `simple`: Operaciones exitosas (/verify válido, /settle exitoso) y errores de validación básicos (monto incorrecto, dirección inválida)
+  - `medium`: Errores de red, timeouts, problemas con WhatsOnChain API que requieren troubleshooting
+  - `advanced`: NO se usa en MVP (reservado para debugging técnico en versiones futuras)
+
+### Research Artifacts
+
+**Artifact 1: AccessibleResponse Type Structure**
+```typescript
+// src/facilitator/types.ts (extracto)
+export interface AccessibleMetadata {
+  plainLanguage: string;          // Max 100 chars, mensaje conciso
+  explanation: string;             // Max 300 chars, descripción detallada
+  stepByStep: string[];            // Max 5 items, 80 chars cada uno
+  hints: {
+    ifError?: string;              // Cómo resolver el error
+    commonMistakes?: string[];     // Errores frecuentes a evitar
+    nextSteps?: string;            // Qué hacer después
+  };
+  language: 'es';                  // Siempre español en MVP
+  audioFriendly: boolean;          // true para mensajes importantes
+  cognitiveLevel: 'simple' | 'medium' | 'advanced';
+}
+
+export interface AccessibleResponse<T> {
+  data: T;                         // Response core (VerifyResponse, SettleResponse, etc)
+  accessibility: AccessibleMetadata;
+}
+```
+
+**Artifact 2: I18n Message Structure**
+```typescript
+// src/facilitator/accessibility/i18n.ts (extracto conceptual)
+export const messages = {
+  errors: {
+    verify: {
+      invalidAmount: {
+        plainLanguage: 'El monto del pago es incorrecto',
+        explanation: 'La transacción enviada no tiene el monto requerido de {required} satoshis. El monto actual es {actual} satoshis.',
+        stepByStep: [
+          'Verifica el monto requerido en los payment requirements',
+          'Crea una nueva transacción con el monto exacto',
+          'Vuelve a enviar la transacción al facilitador'
+        ],
+        hints: {
+          ifError: 'Crea una nueva transacción con {required} satoshis exactos',
+          commonMistakes: [
+            'Confundir satoshis con BSV (1 BSV = 100,000,000 satoshis)',
+            'Olvidar incluir fees en el cálculo del monto'
+          ],
+          nextSteps: 'Consulta EXAMPLES.md sección "Crear transacción con monto exacto"'
+        }
+      },
+      // ... más mensajes
+    },
+    settle: {
+      // ... mensajes de settle
+    }
+  },
+  success: {
+    // ... mensajes de éxito
+  }
+};
+```
+
+**Artifact 3: Reuse Strategy from Base Facilitator**
+
+Del facilitador existente se reutiliza directamente (con reorganización):
+- `verify.ts`: Lógica de validación de transacciones BSV
+- `settle.ts`: Lógica de broadcast con retry
+- `whats-on-chain.ts`: Cliente API con timeout y error handling
+- `logger.ts`: Sistema de logs estructurados
+- Schemas Zod base (extendidos con mensajes en español)
+
+Se agrega nueva funcionalidad:
+- `accessibility/metadata.ts`: Helpers para construcción de metadata
+- `accessibility/i18n.ts`: Mensajes centralizados en español
+- Extensión de schemas Zod con `customErrorMap` en español
+- Wrapper `AccessibleResponse<T>` en todos los endpoints
+
+**Artifact 4: Cloudflare Workers Configuration**
+```toml
+# wrangler.toml
+name = "facilitador-bsv-x402-accesible"
+main = "src/facilitator/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat_v2"]  # Requerido para @bsv/sdk
+
+[observability]
+enabled = true  # Logs y métricas en Cloudflare dashboard
+```
+
+### Research Outcomes
+
+✅ **Decisión 1**: Reutilizar arquitectura Hono del facilitador base, agregando capa de accesibilidad mediante middleware que envuelve responses en `AccessibleResponse<T>`
+
+✅ **Decisión 2**: Centralizar TODOS los mensajes en español en `i18n.ts` con estructura jerárquica (errors.verify, errors.settle, success, etc) para facilitar mantenimiento y traducción futura
+
+✅ **Decisión 3**: Usar @bsv/sdk para validación completa de direcciones (checksum + versión de red) en lugar de regex simples
+
+✅ **Decisión 4**: Implementar retry exponencial en broadcast (1s, 2s, 4s) con timeout de 10s por intento, máximo 3 intentos totales
+
+✅ **Decisión 5**: Detectar transacciones duplicadas consultando WhatsOnChain API ANTES de broadcast para evitar errores innecesarios
+
+✅ **Decisión 6**: Limitar metadata accesible a tamaños fijos (plainLanguage 100 chars, explanation 300 chars, stepByStep 5 items x 80 chars) para garantizar responses <50KB
+
+✅ **Decisión 7**: MVP usa solo `cognitiveLevel: 'simple' | 'medium'`, reservando 'advanced' para versiones futuras
+
+### Dependencies & Prerequisites
+
+**External Dependencies**:
+- Facilitador BSV base funcional en `C:\Users\andre\programacion\x402\bsv\facilitador` ✅
+- WhatsOnChain API disponible para testnet ✅
+- Cloudflare Workers account configurado ✅
+- Documento PLAN.md con estrategia de accesibilidad ✅
+
+**Blocking Issues**: Ninguno identificado. Todas las dependencias están disponibles.
+
+---
+
+## Next Steps
+
+1. ✅ **Phase 0 Complete**: Research completada mediante reutilización del facilitador base
+2. ⏭️ **Phase 1**: Ejecutar `/speckit.plan` para generar:
+   - `data-model.md`: Schemas Zod completos con AccessibleResponse
+   - `quickstart.md`: Guía de setup y primeros pasos
+   - `contracts/`: Contratos de APIs (/verify, /settle, /supported)
+3. ⏭️ **Phase 2**: Ejecutar `/speckit.tasks` para generar `tasks.md` con checklist de implementación
+
+**Notas importantes**:
+- NO generar `research.md` porque las decisiones técnicas ya están tomadas
+- La implementación debe seguir el código del facilitador base en `C:\Users\andre\programacion\x402\bsv\facilitador`
+- Priorizar reutilización de código probado sobre reimplementación desde cero
+- Todos los cambios deben mantener compatibilidad con protocolo X402 estándar

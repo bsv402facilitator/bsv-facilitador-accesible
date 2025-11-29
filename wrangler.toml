@@ -1,0 +1,23 @@
+name = "facilitador-bsv-x402-accesible"
+main = "src/facilitator/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat_v2"]
+
+[observability]
+enabled = true
+
+# Development configuration (testnet para desarrollo)
+[env.development]
+name = "facilitador-bsv-x402-accesible-dev"
+
+[env.development.vars]
+WALLET_ADDRESS = "mhSDV8SPswwXCGFpkE8pTWUftVnSW6g3qk"
+NETWORK = "testnet"
+
+# Production configuration (mainnet por defecto)
+[env.production]
+name = "facilitador-bsv-x402-accesible"
+
+[env.production.vars]
+WALLET_ADDRESS = "1LiSSPcm8tLjCDPqQxCR5oPqvTUkYCpJ86"
+NETWORK = "mainnet"

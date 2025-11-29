@@ -1,0 +1,25 @@
+{
+  "source": "imported_from_mnemonic",
+  "network": "testnet",
+  "mnemonic": "evolve lottery shrimp host cute ancient useful calm race napkin outer boss",
+  "derivationPath": "m/44'/0'/0'/0/0",
+  "privateKey": "L26hwwP6om6MYkpNykXVyKr6ACpG1Qe3S4n6weRWZ54ftHvkGVtK",
+  "publicKey": "0294fe3fa34c277a1c5012a4249cf1b4ce4c4c4b5cc4e02952ae7140a2bc2b7d2b",
+  "address": "n2CazoRPsfLDFuCr49ZnqVkFTc6RvzSTkk",
+  "addressProvided": "mvV6uHSpDfk4PLa1B1Mf8wYQMn7Gf9eMf4",
+  "addressMatch": false,
+  "balance": 0,
+  "utxoCount": 0,
+  "faucets": [
+    "https://faucet.bitcoincloud.net/",
+    "https://testnet.satoshisvision.network/"
+  ],
+  "explorer": "https://test.whatsonchain.com/address/n2CazoRPsfLDFuCr49ZnqVkFTc6RvzSTkk",
+  "apiUnspent": "https://api.whatsonchain.com/v1/bsv/test/address/n2CazoRPsfLDFuCr49ZnqVkFTc6RvzSTkk/unspent",
+  "instructions": [
+    "1. Verifica el balance en el explorador",
+    "2. Si no hay fondos, obtén del faucet",
+    "3. Ejecuta scripts/build-real-transaction-imported.ts para crear transacciones",
+    "4. Prueba el facilitador con transacciones reales"
+  ]
+}

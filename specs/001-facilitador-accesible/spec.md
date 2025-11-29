@@ -1,0 +1,216 @@
+# Feature Specification: Facilitador X402 BSV con Accesibilidad Universal
+
+**Feature Branch**: `001-facilitador-accesible`
+**Created**: 2025-11-27
+**Status**: Draft
+**Input**: User description: "De este plan solo vamos a implementar el facilitador que se ve que es la parte mas importante, para ello no vamos a partir de cero sino que vamos a copiar C:\Users\andre\programacion\x402\bsv\facilitador que ya esta comprobado su funcionamiento con bsv, ahora en esta nueva implementacion es agregarle todo el soporte a la accesibilidad que se explica en el archivo"
+
+## Clarifications
+
+### Session 2025-11-27
+
+- Q: ¿Cuál es el alcance exacto de la migración del código base del facilitador existente? → A: Copiar solo la lógica core de verify y settle del facilitador existente, reorganizar bajo nueva arquitectura que separe concerns, escribir lo demás desde cero
+- Q: ¿Cómo debe validarse el formato de direcciones BSV para distinguir testnet de mainnet? → A: Usar `@bsv/sdk` para validar formato completo de dirección incluyendo checksum y versión de red
+- Q: ¿Cómo se implementará la detección de transacciones ya broadcasted en un sistema stateless? → A: Consultar WhatsOnChain API para verificar si el txid ya existe en blockchain antes de broadcast
+- Q: ¿Cuándo debe usarse cada nivel de cognitiveLevel en la metadata accesible? → A: Simple para éxitos y errores de validación, medium para errores de red/timeouts, advanced no se usa en MVP
+- Q: ¿PLAN.md es un documento externo existente o se debe crear como parte de este feature? → A: PLAN.md es un documento externo existente que ya contiene la estrategia de accesibilidad y debe consultarse
+## User Scenarios & Testing *(mandatory)*
+
+### User Story 1 - Verificar Pago BSV con Metadata Accesible (Priority: P1)
+
+Un cliente LLM (como Claude Desktop o ChatGPT) necesita verificar que una transacción BSV cumple con los requisitos de pago de un recurso protegido. El facilitador debe validar la transacción Y proporcionar metadata accesible que permita al LLM explicar el resultado en lenguaje sencillo al usuario final, independientemente de sus capacidades cognitivas.
+
+**Why this priority**: Este es el flujo core del protocolo X402. Sin verificación de pagos, no hay funcionalidad. La metadata accesible es lo que diferencia este facilitador de cualquier otro, permitiendo acceso universal a pagos blockchain.
+
+**Independent Test**: Puede testearse enviando una request POST a `/verify` con una transacción BSV válida y verificando que: (1) la validación funciona correctamente, (2) el response incluye todos los campos de metadata accesible (plainLanguage, explanation, stepByStep, hints), (3) los mensajes están en español claro y sin jerga técnica.
+
+**Acceptance Scenarios**:
+
+1. **Given** una transacción BSV válida con monto y dirección correctos, **When** el cliente envía POST /verify, **Then** el facilitador retorna `isValid: true` con metadata accesible que explica "El pago se verificó correctamente" en lenguaje sencillo
+2. **Given** una transacción BSV con monto insuficiente, **When** el cliente envía POST /verify, **Then** el facilitador retorna `isValid: false` con metadata accesible que explica qué está mal y cómo corregirlo (ej: "Necesitas enviar 500 satoshis pero solo enviaste 300. Crea una nueva transacción con el monto correcto")
+3. **Given** una transacción BSV con dirección incorrecta, **When** el cliente envía POST /verify, **Then** el facilitador retorna `isValid: false` con metadata que identifica el error y sugiere verificar la dirección de destino
+4. **Given** un cliente LLM interpretando la metadata accesible, **When** presenta el resultado al usuario con discapacidad cognitiva, **Then** el usuario comprende el estado del pago sin conocimientos técnicos de blockchain
+
+---
+
+### User Story 2 - Broadcast de Transacción con Explicación Accesible (Priority: P1)
+
+Un cliente LLM necesita realizar el broadcast (settlement) de una transacción BSV a la blockchain y explicar el proceso al usuario en pasos simples. El facilitador debe ejecutar el broadcast Y proporcionar metadata que permita al LLM guiar al usuario paso a paso, especialmente útil para personas con discapacidades visuales usando lectores de pantalla.
+
+**Why this priority**: Settlement es el segundo paso crítico del protocolo X402. Junto con verify, forma el MVP completo del facilitador. La metadata accesible permite que usuarios con discapacidades visuales entiendan el flujo completo mediante TTS (text-to-speech).
+
+**Independent Test**: Puede testearse enviando una request POST a `/settle` con una transacción válida y verificando que: (1) la transacción se broadcastea a BSV testnet correctamente, (2) el response incluye metadata con stepByStep explicando el proceso, (3) audioFriendly es true para compatibilidad con TTS, (4) los mensajes de error (si aplica) incluyen hints de resolución.
+
+**Acceptance Scenarios**:
+
+1. **Given** una transacción BSV válida no broadcasted previamente, **When** el cliente envía POST /settle, **Then** el facilitador broadcastea la transacción y retorna metadata con stepByStep explicando: "1. Recibimos tu transacción firmada. 2. La validamos contra la red BSV. 3. La transmitimos a la blockchain. 4. La transacción está confirmada con ID [txid]"
+2. **Given** una transacción ya broadcasted previamente, **When** el cliente reintenta POST /settle, **Then** el facilitador retorna error con metadata explicando "Esta transacción ya fue procesada. Tu pago anterior con ID [txid] ya está en la blockchain. No necesitas pagar de nuevo"
+3. **Given** un fallo de red al hacer broadcast, **When** POST /settle falla después de reintentos, **Then** el facilitador retorna error con hints: "No pudimos conectar con la red BSV. Reintenta en unos segundos. Tu transacción es válida y no has perdido fondos"
+4. **Given** un usuario con lector de pantalla, **When** el LLM lee la metadata con audioFriendly: true, **Then** los mensajes se convierten correctamente a voz sin caracteres especiales o jerga técnica que confundan al TTS
+
+---
+
+### User Story 3 - Consultar Redes Soportadas (Priority: P2)
+
+Un cliente necesita conocer qué redes blockchain soporta el facilitador antes de intentar un pago. El facilitador debe proporcionar esta información de forma accesible.
+
+**Why this priority**: Funcionalidad útil pero no crítica. Los clientes pueden asumir BSV testnet si no está disponible. Sin embargo, es parte del protocolo X402 estándar y la metadata accesible mejora la experiencia.
+
+**Independent Test**: Puede testearse enviando GET a `/` (health endpoint) y verificando que retorna las redes soportadas con metadata accesible explicando qué significa cada red en lenguaje sencillo.
+
+**Acceptance Scenarios**:
+
+1. **Given** el facilitador está operativo, **When** el cliente envía GET /, **Then** el facilitador retorna `{ networks: ["bsv-testnet"] }` con metadata explicando "Este facilitador acepta pagos en la red de pruebas de Bitcoin SV. Los satoshis son de prueba y no tienen valor real"
+2. **Given** un usuario sin conocimientos de blockchain, **When** el LLM interpreta la metadata, **Then** puede explicar la diferencia entre testnet y mainnet sin términos técnicos
+
+---
+
+### Edge Cases
+
+- **¿Qué pasa cuando la transacción es válida pero el broadcast falla por problemas de red?**: El facilitador debe reintentar hasta 3 veces con backoff exponencial. Si todos fallan, retornar error con metadata explicando que la transacción es válida, el problema es temporal, y el usuario puede reintentar sin perder fondos.
+
+- **¿Cómo maneja el sistema una transacción con formato BSV inválido?**: Validación Zod debe capturar el error antes de cualquier procesamiento y retornar metadata explicando qué campo tiene el problema (ej: "La transacción no tiene el formato correcto. Verifica que sea una transacción BSV válida firmada").
+
+- **¿Qué sucede si paymentRequirements tiene un monto en formato incorrecto (no numérico)?**: El schema Zod debe validar que maxAmountRequired sea string numérico. Si falla, retornar error con metadata: "El monto debe ser un número de satoshis. Ejemplo: '500' en lugar de '5.00' o 'cinco'".
+
+- **¿Cómo se comporta el sistema con direcciones BSV de mainnet en lugar de testnet?**: Usar `@bsv/sdk` para validar el formato completo de la dirección (checksum, versión de red). Si la dirección es de mainnet o tiene formato inválido, retornar error con metadata: "La dirección no es válida para testnet. Verifica que sea una dirección BSV testnet correcta".
+
+- **¿Qué pasa si la metadata accesible crece demasiado y excede límites de Cloudflare Workers?**: Limitar stepByStep a máximo 5 pasos, explanation a 300 caracteres, y plainLanguage a 100 caracteres. Priorizar claridad sobre exhaustividad. Monitorear que el response total sea <50KB.
+
+- **¿Cómo se manejan timeouts en las llamadas a WhatsOnChain API?**: Configurar timeout explícito de 10 segundos en fetch. Si expira, retornar error con metadata: "La red BSV no respondió a tiempo. Esto es temporal. Reintenta en unos segundos".
+- **¿Qué sucede si WhatsOnChain API falla al verificar si una transacción ya existe?**: Si la verificación de txid existente falla, proceder con el broadcast de todas formas. Si el broadcast también falla con error de "transacción duplicada", interpretar como ya broadcasted y retornar metadata apropiada. Esto garantiza que fallos de API no bloqueen pagos legítimos.
+
+## Requirements *(mandatory)*
+
+### Functional Requirements
+
+- **FR-001**: Sistema DEBE aceptar requests POST a `/verify` con payload conteniendo transacción BSV firmada y paymentRequirements, validando que la transacción cumple con monto y dirección especificados
+
+- **FR-002**: Sistema DEBE retornar responses de `/verify` con estructura que incluye campo `isValid` (boolean), `invalidReason` (string opcional), `payer` (dirección BSV del pagador), Y metadata accesible con campos: `plainLanguage`, `explanation`, `stepByStep`, `hints`, `language: "es"`, `audioFriendly: true`, `cognitiveLevel`
+
+- **FR-003**: Sistema DEBE aceptar requests POST a `/settle` con payload de transacción BSV válida y ejecutar broadcast a la blockchain BSV testnet usando WhatsOnChain API
+
+- **FR-004**: Sistema DEBE retornar responses de `/settle` con estructura que incluye `success` (boolean), `errorReason` (opcional), `transaction` (txid), `payer`, `network`, Y metadata accesible con los mismos campos que /verify
+
+- **FR-005**: Sistema DEBE implementar reintentos exponenciales en broadcast: máximo 3 intentos con backoff 2^n segundos (1s, 2s, 4s) ante fallos de red
+
+- **FR-006**: Sistema DEBE validar TODOS los inputs usando schemas Zod con mensajes de error en español claro antes de cualquier procesamiento
+
+- **FR-007**: Sistema DEBE proporcionar endpoint GET `/` que retorna redes soportadas (`{ networks: ["bsv-testnet"] }`) con metadata accesible explicando cada red
+
+- **FR-008**: Sistema DEBE centralizar TODOS los mensajes en español en archivo `src/facilitator/accessibility/i18n.ts` con estructura jerárquica por tipo (errors, success, explanations, hints)
+
+- **FR-009**: Sistema DEBE garantizar que metadata accesible cumple con WCAG 2.1 Level AA: sin jerga innecesaria, errores accionables (qué pasó + cómo resolver), language tag correcto, audioFriendly en mensajes importantes
+- **FR-010**: Sistema DEBE especificar `cognitiveLevel` en metadata: "simple" para operaciones exitosas y errores de validación básicos, "medium" para errores de red/timeouts que requieren troubleshooting. Nota: "advanced" no se usa en MVP (reservado para versiones futuras)
+
+- **FR-011**: Sistema DEBE limitar tamaño de metadata accesible: plainLanguage máximo 100 caracteres, explanation máximo 300 caracteres, stepByStep máximo 5 items de 80 caracteres cada uno
+
+- **FR-012**: Sistema DEBE incluir campo `hints` en metadata de errores con subcampos: `ifError` (cómo resolver), `commonMistakes` (errores frecuentes a evitar), `nextSteps` (qué hacer después)
+
+- **FR-013**: Sistema DEBE ser stateless: cada request es independiente, sin almacenamiento persistente (no KV, no D1, no sesiones)
+
+- **FR-014**: Sistema DEBE cumplir targets de performance: `/verify` <200ms p95, `/settle` <2s p95 (incluyendo broadcast), timeout en fetch a WhatsOnChain de 10 segundos
+
+- **FR-015**: Sistema DEBE escribir logs estructurados JSON a stderr (no stdout) con niveles info/warn/error, SIN incluir datos sensibles (nunca claves privadas, solo txids y direcciones públicas)
+
+- **FR-016**: Sistema DEBE detectar transacciones ya broadcasted y retornar error específico con metadata explicando que el pago ya fue procesado, incluyendo el txid previo
+
+### Key Entities
+- **FR-017**: Sistema DEBE validar que direcciones BSV correspondan a la red especificada (testnet) usando `@bsv/sdk` para verificar formato completo (checksum, versión de red), rechazando direcciones de mainnet o malformadas con mensaje de error claro
+- **PaymentRequirements**: Define los requisitos de pago que el recurso protegido solicita. Atributos: scheme ("exact"), network ("bsv-testnet"), maxAmountRequired (string numérico en satoshis), payTo (dirección BSV destino), resource (URL del recurso), description (opcional), maxTimeoutSeconds (tiempo límite). Validado con PaymentRequirementsSchema Zod.
+
+- **PaymentPayload**: Transacción BSV firmada enviada por el cliente. Atributos: x402Version (1), scheme ("exact"), network ("bsv-testnet"), payload.transaction (string hex de la transacción BSV). Validado con PaymentPayloadSchema Zod.
+
+- **AccessibleMetadata**: Metadata de accesibilidad universal adjunta a todos los responses. Atributos: plainLanguage (mensaje conciso), explanation (descripción detallada), stepByStep (array de pasos), hints (objeto con ifError, commonMistakes, nextSteps), language ("es"), audioFriendly (boolean), cognitiveLevel ("simple" | "medium" | "advanced"). Definido en AccessibleResponse<T> interface.
+
+- **VerifyResponse**: Resultado de validación de transacción. Atributos: isValid (boolean), invalidReason (string opcional con código de error), payer (dirección BSV del origen), accessibility (AccessibleMetadata). Valida monto, dirección, formato de transacción.
+
+- **SettleResponse**: Resultado de broadcast de transacción. Atributos: success (boolean), errorReason (string opcional), transaction (txid en blockchain), payer (dirección BSV), network ("bsv-testnet"), accessibility (AccessibleMetadata). Incluye lógica de reintentos.
+
+## Success Criteria *(mandatory)*
+
+### Measurable Outcomes
+
+- **SC-001**: Usuarios pueden verificar pagos BSV en menos de 200 milisegundos (percentil 95), garantizando respuesta casi instantánea
+
+- **SC-002**: Usuarios pueden completar el flujo completo de pago (verify + settle) en menos de 3 segundos (percentil 95), incluyendo broadcast a blockchain
+
+- **SC-003**: 100% de los responses del facilitador incluyen metadata accesible completa con los 7 campos obligatorios (plainLanguage, explanation, stepByStep, hints, language, audioFriendly, cognitiveLevel)
+
+- **SC-004**: 100% de los mensajes en español cumplen WCAG 2.1 Level AA: sin jerga innecesaria, errores accionables, nivel de lectura comprensible para educación secundaria
+
+- **SC-005**: Clientes LLM (Claude Desktop, ChatGPT) pueden interpretar la metadata accesible y explicar resultados a usuarios sin conocimientos de blockchain, verificable mediante testing con usuarios reales o prompts de prueba
+
+- **SC-006**: Sistema mantiene tasa de éxito de broadcast >95% ante condiciones normales de red (fallos solo por problemas reales de blockchain o WhatsOnChain API)
+
+- **SC-007**: Coverage de tests automatizados >80% (líneas, branches, funciones, statements) incluyendo tests unitarios de metadata accesible y tests de integración del flujo completo
+
+- **SC-008**: Tamaño de responses <50KB en todos los casos, permitiendo operación dentro de límites de Cloudflare Workers sin exceder quotas
+
+- **SC-009**: Sistema detecta y rechaza 100% de transacciones inválidas (monto incorrecto, dirección errónea, formato inválido) ANTES de intentar broadcast, evitando costos innecesarios y mejorando experiencia
+
+- **SC-010**: Documentación permite a desarrolladores integrar el facilitador en <15 minutos siguiendo EXAMPLES.md con casos de uso paso a paso
+
+## Assumptions
+
+- **Asunción 1**: Los clientes del facilitador son principalmente LLMs (Claude Desktop con MCP, ChatGPT con plugins) que saben interpretar metadata JSON estructurada y convertirla en conversación accesible. No es necesario crear UI web accesible tradicional.
+
+- **Asunción 2**: La red BSV testnet está disponible y WhatsOnChain API funciona correctamente la mayoría del tiempo. Los fallos de red son temporales y se resuelven con reintentos.
+
+- **Asunción 3**: El facilitador opera exclusivamente en BSV testnet durante la fase inicial. Soporte para mainnet se agregará en versión futura tras validar la estrategia de accesibilidad.
+
+- **Asunción 4**: La metadata accesible de 2-5KB adicionales por response es aceptable en términos de bandwidth y no impacta significativamente los costos de Cloudflare Workers.
+
+- **Asunción 5**: Los usuarios finales interactúan con el facilitador a través de clientes LLM, no directamente. Por tanto, la accesibilidad se enfoca en metadata interpretable por máquinas más que en ARIA labels o roles web.
+
+- **Asunción 6**: Los mensajes en español son suficientes para el MVP. Soporte multiidioma (mediante campo `language` en metadata) se puede agregar posteriormente sin cambios arquitectónicos.
+
+- **Asunción 7**: El facilitador existente en `C:SERSNDREPROGRAMACION@2BSVACILITADOR` TIENE FUNCIONALIDAD CORE SÓLIDA Y BIEN TESTEADA QUE PUEDE SER REUTILIZADA SELECTIVAMENTE CON REORGANIZACIÓN ARQUITECTÓNICA PARA SEPARAR CONCERNS.
+
+- **Asunción 8**: Límites de complejidad cognitiva están bien definidos: "simple" = educación primaria completada, "medium" = educación secundaria, "advanced" = conocimientos técnicos básicos de blockchain.
+
+
+- **Almacenamiento de historial de transacciones**: El facilitador es stateless. No mantiene base de datos de pagos procesados. La blockchain BSV es la única fuente de verdad.
+
+- **Soporte para mainnet BSV**: La versión inicial solo soporta testnet. Mainnet requiere validación adicional de seguridad y no está en scope para este feature.
+
+- **UI web accesible tradicional**: No se crea interfaz web para usuarios finales. La accesibilidad se implementa mediante metadata JSON interpretable por LLMs, no mediante WCAG web (ARIA, roles, contraste visual, etc).
+
+- **Multiidioma**: Solo español en el MVP. La arquitectura permite agregar idiomas posteriormente (campo `language` en metadata) pero la implementación inicial es solo ES.
+
+- **Integración con otros protocolos de pago**: Solo X402 con Bitcoin SV. No Lightning Network, no Ethereum, no otros altcoins.
+
+- **Autenticación o autorización de clientes**: El facilitador es público y stateless. Cualquier cliente puede enviar requests. Rate limiting o auth quedan fuera de scope.
+
+- **Analytics o métricas de uso**: No se rastrean métricas de usuarios, volumen de pagos, etc. Cloudflare Workers proporciona métricas básicas de infraestructura pero no hay analytics personalizados.
+
+- **Conversión de moneda fiat**: Los pagos se especifican en satoshis. No hay conversión automática de USD/EUR a BSV.
+
+## Dependencies
+- **Facilitador BSV existente**: El código base en `C:SERSNDREPROGRAMACION@2BSVACILITADOR` DEBE ESTAR FUNCIONAL Y BIEN TESTEADO. LA LÓGICA CORE DE VERIFY Y SETTLE SERÁ EXTRAÍDA Y REORGANIZADA BAJO NUEVA ARQUITECTURA.
+- **Facilitador BSV existente**: El código base en `C:\Users\andre\programacion\x402\bsv\facilitador` debe estar funcional y bien testeado. Este feature asume que la lógica de verify y settle es sólida.
+
+- **WhatsOnChain API**: Disponibilidad del servicio de terceros para broadcast y validación de transacciones BSV testnet. Si WhatsOnChain tiene downtime, el facilitador no puede funcionar.
+
+- **Cloudflare Workers runtime**: Despliegue en Cloudflare Workers con nodejs_compat_v2 habilitado. Depende de capacidades del runtime V8 isolate.
+
+
+- **Zod**: Librería de validación de schemas. La metadata accesible y los payloads X402 dependen de Zod para validación consistente.
+- **PLAN.md**: Documento de referencia externo existente con la estrategia LLM-first de accesibilidad universal. La implementación debe seguir los estándares y patrones definidos en PLAN.md, especialmente las secciones sobre metadata accesible y mensajes en lenguaje claro.
+- **PLAN.md**: Documento de referencia con la estrategia LLM-first de accesibilidad. La implementación debe seguir los estándares definidos en PLAN.md secciones 2.0-2.1.
+
+## Risks & Mitigations
+
+**Riesgo 1: Metadata accesible crece demasiado y excede límites de Cloudflare Workers (1MB response size)**
+- Mitigación: Límites estrictos en tamaño de campos (FR-011). Monitoreo en tests que responses sean <50KB. Priorizar claridad sobre exhaustividad.
+
+- Mitigación: Testing manual con usuarios reales o expertos en accesibilidad cognitiva. Validar nivel de lectura con herramientas automatizadas (ej: Flesch-Kincaid en español).
+
+**Riesgo 3: WhatsOnChain API tiene downtime o rate limiting inesperado**
+- Mitigación: Timeouts configurados (10s), reintentos exponenciales, mensajes de error claros explicando que el problema es temporal. Considerar fallback a múltiples proveedores en futuro.
+
+**Riesgo 4: Clientes LLM (Claude, ChatGPT) no interpretan correctamente la metadata estructurada**
+- Mitigación: Documentar formato JSON claramente en EXAMPLES.md. Proveer prompts de ejemplo para LLMs. Testing con Claude Desktop real durante desarrollo.
+
+**Riesgo 5: Performance targets (<200ms verify, <2s settle) no se cumplen en producción**
+- Mitigación: Profiling durante testing. Optimizar código crítico. La metadata accesible es ligera (~2-5KB) y no debería impactar significativamente. Monitorear en Cloudflare Workers analytics.

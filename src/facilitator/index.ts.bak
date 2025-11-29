@@ -1,0 +1,190 @@
+/**
+ * Facilitador X402 BSV con Accesibilidad Universal
+ *
+ * Entrypoint principal - define routes, middleware y error handling
+ */
+
+import { Hono } from 'hono';
+import { zValidator } from '@hono/zod-validator';
+import { cors } from 'hono/cors';
+import {
+  VerifyRequestSchema,
+  AccessibleResponse,
+  VerifyResponse,
+  VerifyErrorCodes,
+} from './types';
+import { verifyTransaction } from './verify';
+import { createAccessibleResponse } from './accessibility/metadata';
+import { messages, createMetadataFromTemplate } from './accessibility/i18n';
+import { logger } from './logger';
+
+const app = new Hono();
+
+// ============================================================================
+// Middleware
+// ============================================================================
+
+// CORS para permitir requests desde clientes LLM (Claude Desktop, ChatGPT)
+app.use('/*', cors({
+  origin: '*', // Permitir todos los orígenes (seguro para facilitador público)
+  allowMethods: ['GET', 'POST', 'OPTIONS'],
+  allowHeaders: ['Content-Type'],
+}));
+
+// Error handling global para errores no capturados
+app.onError((err, c) => {
+  // Detectar errores de validación (JSON malformado o schema Zod inválido)
+  if (err.message.includes('Malformed JSON') || err.message.includes('Unexpected token') || err.name === 'ZodError') {
+    logger.warn('Validation error in request', {
+      path: c.req.path,
+      method: c.req.method,
+      error: err.message,
+    });
+
+    return c.json({
+      success: false,
+      error: {
+        message: 'Solicitud inválida',
+        details: err.message,
+      },
+    }, 400);
+  }
+
+  // Otros errores inesperados
+  logger.error( 'Unhandled error in request', {
+    path: c.req.path,
+    method: c.req.method,
+    error: err.message,
+    stack: err.stack,
+  });
+
+  const errorResponse: AccessibleResponse<{ error: string }> = createAccessibleResponse(
+    { error: 'Error interno del servidor' },
+    {
+      plainLanguage: 'Ocurrió un error inesperado',
+      explanation: 'El facilitador encontró un problema al procesar tu solicitud. Por favor intenta de nuevo.',
+      stepByStep: [
+        'Ocurrió un error interno inesperado',
+        'El problema ha sido registrado',
+        'Intenta la solicitud nuevamente',
+      ],
+      hints: {
+        nextSteps: 'Si el error persiste, contacta soporte con la hora del error',
+      },
+      language: 'es',
+      audioFriendly: true,
+      cognitiveLevel: 'medium',
+    }
+  );
+
+  return c.json(errorResponse, 500);
+});
+
+// ============================================================================
+// Endpoints
+// ============================================================================
+
+/**
+ * GET / - Health check y redes soportadas
+ */
+app.get('/', (c) => {
+  const response: AccessibleResponse<{ networks: string[] }> = createAccessibleResponse(
+    { networks: ['bsv-testnet'] },
+    createMetadataFromTemplate(messages.success.supportedNetworks, {}, 'simple', true)
+  );
+
+  return c.json(response);
+});
+
+/**
+ * POST /verify - Verificar transacción BSV sin broadcast (User Story 1)
+ *
+ * T042, T043, T044
+ */
+app.post('/verify', zValidator('json', VerifyRequestSchema, (result, c) => {
+  if (!result.success) {
+    return c.json({
+      success: false,
+      error: result.error,
+    }, 400);
+  }
+}), async (c) => {
+  const requestBody = c.req.valid('json');
+  const { payload, paymentRequirements } = requestBody;
+
+  logger.info( 'Verify request received', {
+    network: payload.network,
+    scheme: payload.scheme,
+    requiredAmount: paymentRequirements.maxAmountRequired,
+  });
+
+  // T043: Llamar a verifyTransaction() y envolver en AccessibleResponse
+  const verifyResult = verifyTransaction(payload, paymentRequirements);
+
+  let metadata;
+
+  if (verifyResult.isValid) {
+    // Éxito: usar mensaje de success.verifyValid
+    metadata = createMetadataFromTemplate(
+      messages.success.verifyValid,
+      {
+        amount: paymentRequirements.maxAmountRequired,
+        address: paymentRequirements.payTo,
+      },
+      'simple',
+      true
+    );
+  } else {
+    // Error: determinar qué mensaje usar según invalidReason
+    const invalidReason = verifyResult.invalidReason;
+
+    switch (invalidReason) {
+      case VerifyErrorCodes.INVALID_AMOUNT:
+        metadata = createMetadataFromTemplate(
+          messages.errors.verify.invalidAmount,
+          {
+            required: paymentRequirements.maxAmountRequired,
+            actual: '0', // TODO: extraer monto real de la transacción
+          },
+          'simple',
+          true
+        );
+        break;
+
+      case VerifyErrorCodes.INVALID_ADDRESS:
+        metadata = createMetadataFromTemplate(
+          messages.errors.verify.invalidAddress,
+          {
+            required: paymentRequirements.payTo,
+            actual: 'desconocida',
+          },
+          'simple',
+          true
+        );
+        break;
+
+      case VerifyErrorCodes.INVALID_FORMAT:
+      default:
+        metadata = createMetadataFromTemplate(
+          messages.errors.verify.invalidFormat,
+          {},
+          'simple',
+          true
+        );
+        break;
+    }
+  }
+
+  const response: AccessibleResponse<VerifyResponse> = createAccessibleResponse(
+    verifyResult,
+    metadata
+  );
+
+  return c.json(response);
+});
+
+// ============================================================================
+// Export
+// ============================================================================
+
+export default app;

@@ -1,0 +1,859 @@
+openapi: 3.1.0
+info:
+  title: Facilitador X402 BSV con Accesibilidad Universal
+  version: 1.0.0
+  description: |
+    Facilitador X402 para Bitcoin SV (testnet) con accesibilidad universal.
+
+    Este facilitador permite a usuarios con discapacidades cognitivas y visuales realizar
+    pagos blockchain a través de clientes LLM (Claude Desktop, ChatGPT, etc). Todos los
+    responses incluyen metadata accesible en español claro sin jerga técnica.
+
+    **Características principales**:
+    - Validación de transacciones BSV sin broadcast (endpoint /verify)
+    - Broadcast de transacciones válidas a blockchain (endpoint /settle)
+    - Metadata accesible universal en todos los responses
+    - Mensajes en español claro con niveles cognitivos adaptativos
+    - Compatibilidad con text-to-speech (TTS) para usuarios con discapacidad visual
+    - Sugerencias accionables para resolución de errores
+
+    **Protocolo**: X402 v1 (https://github.com/bitcoin-sv/x402)
+
+    **Red**: BSV Testnet únicamente (mainnet no soportado en MVP)
+
+  contact:
+    name: Soporte Facilitador BSV
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://facilitador-bsv-x402-accesible.workers.dev
+    description: Servidor de producción (Cloudflare Workers)
+  - url: http://localhost:8787
+    description: Servidor de desarrollo local
+
+tags:
+  - name: health
+    description: Endpoints de salud y verificación del servicio
+  - name: verification
+    description: Validación de transacciones sin broadcast
+  - name: settlement
+    description: Broadcast de transacciones a blockchain
+
+paths:
+  /:
+    get:
+      summary: Health check y redes soportadas
+      description: |
+        Retorna información sobre las redes blockchain soportadas por el facilitador.
+        Sirve como health check para verificar disponibilidad del servicio.
+
+        **Casos de uso**:
+        - Verificar que el facilitador está disponible antes de enviar pagos
+        - Consultar qué redes blockchain están soportadas
+        - Health check para monitoreo
+      tags:
+        - health
+      operationId: getSupportedNetworks
+      responses:
+        '200':
+          description: Lista de redes soportadas con metadata accesible
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/AccessibleResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SupportedNetworksResponse'
+              examples:
+                success:
+                  summary: Respuesta exitosa
+                  value:
+                    data:
+                      networks:
+                        - bsv-testnet
+                    accessibility:
+                      plainLanguage: El facilitador está funcionando correctamente
+                      explanation: El servicio está activo y soporta pagos en Bitcoin SV testnet. Puedes enviar transacciones para verificar y procesar.
+                      stepByStep:
+                        - El facilitador está disponible
+                        - Soporta la red BSV testnet
+                        - Puedes enviar transacciones al endpoint /verify
+                      hints:
+                        nextSteps: "Envía una transacción al endpoint POST /verify para validarla"
+                      language: es
+                      audioFriendly: true
+                      cognitiveLevel: simple
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /verify:
+    post:
+      summary: Verificar transacción BSV sin broadcast
+      description: |
+        Valida que una transacción BSV cumple con los requisitos de pago sin broadcastearla
+        a la blockchain. Verifica:
+        - Formato correcto de la transacción
+        - Monto exacto según paymentRequirements
+        - Dirección de destino correcta
+        - Red correcta (testnet)
+
+        **NO realiza broadcast**. Usa este endpoint antes de /settle para validar la transacción.
+
+        **Flujo recomendado**:
+        1. POST /verify para validar transacción
+        2. Si isValid=true, POST /settle para broadcastear
+        3. Si isValid=false, revisar invalidReason y corregir según hints
+
+      tags:
+        - verification
+      operationId: verifyTransaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyRequest'
+            examples:
+              validTransaction:
+                summary: Transacción válida
+                value:
+                  payload:
+                    x402Version: 1
+                    scheme: exact
+                    network: bsv-testnet
+                    payload:
+                      transaction: "0100000001a6b97044316c6f7e31894e0f2a2e7e3e3e9e7e3e9e7e3e9e7e3e9e7e3e9e01000000484730440220..."
+                  paymentRequirements:
+                    scheme: exact
+                    network: bsv-testnet
+                    maxAmountRequired: "500"
+                    resource: https://api.example.com/protected-resource
+                    description: Acceso premium a API de datos
+                    payTo: mqBPdELHZ2Hwvq7MQmZi3hGN6aBBvTkEjf
+                    maxTimeoutSeconds: 300
+      responses:
+        '200':
+          description: Resultado de verificación con metadata accesible
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/AccessibleResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/VerifyResponse'
+              examples:
+                valid:
+                  summary: Transacción válida
+                  value:
+                    data:
+                      isValid: true
+                      payer: mxVFsFW5N4mu1HPkxPttorvocvzeZ7KZyk
+                    accessibility:
+                      plainLanguage: El pago se verificó correctamente
+                      explanation: Tu transacción cumple con todos los requisitos - monto de 500 satoshis enviados a mqBPdELHZ2Hwvq7MQmZi3hGN6aBBvTkEjf
+                      stepByStep:
+                        - Recibimos tu transacción
+                        - Validamos el monto y la dirección de destino
+                        - La transacción está lista para ser procesada
+                        - Puedes proceder con el paso de settlement
+                      hints:
+                        nextSteps: Llama al endpoint /settle para completar el pago
+                      language: es
+                      audioFriendly: true
+                      cognitiveLevel: simple
+                invalidAmount:
+                  summary: Monto incorrecto
+                  value:
+                    data:
+                      isValid: false
+                      invalidReason: invalid_amount
+                      payer: mxVFsFW5N4mu1HPkxPttorvocvzeZ7KZyk
+                    accessibility:
+                      plainLanguage: El monto del pago es incorrecto
+                      explanation: La transacción tiene 300 satoshis pero necesitas 500 satoshis. Debes crear una nueva transacción con el monto exacto.
+                      stepByStep:
+                        - Verifica el monto requerido en los payment requirements
+                        - Crea una nueva transacción con el monto exacto
+                        - Vuelve a enviar la transacción al facilitador
+                      hints:
+                        ifError: Crea una nueva transacción con 500 satoshis exactos
+                        commonMistakes:
+                          - Confundir satoshis con BSV (1 BSV = 100,000,000 satoshis)
+                          - Olvidar incluir fees en el cálculo del monto
+                        nextSteps: Consulta EXAMPLES.md sección 'Crear transacción con monto exacto'
+                      language: es
+                      audioFriendly: true
+                      cognitiveLevel: simple
+                invalidAddress:
+                  summary: Dirección incorrecta
+                  value:
+                    data:
+                      isValid: false
+                      invalidReason: invalid_address
+                      payer: mxVFsFW5N4mu1HPkxPttorvocvzeZ7KZyk
+                    accessibility:
+                      plainLanguage: La dirección de destino es incorrecta
+                      explanation: La transacción no envía fondos a la dirección requerida mqBPdELHZ2Hwvq7MQmZi3hGN6aBBvTkEjf. Verifica que estés usando la dirección correcta.
+                      stepByStep:
+                        - Revisa la dirección de destino en paymentRequirements
+                        - Copia la dirección exactamente como aparece
+                        - Crea una nueva transacción con la dirección correcta
+                      hints:
+                        ifError: Usa la dirección mqBPdELHZ2Hwvq7MQmZi3hGN6aBBvTkEjf en tu transacción
+                        commonMistakes:
+                          - Usar dirección de mainnet en lugar de testnet
+                          - Errores de tipeo al copiar la dirección
+                        nextSteps: Verifica que la dirección comience con 'm' o 'n' (testnet)
+                      language: es
+                      audioFriendly: true
+                      cognitiveLevel: simple
+                invalidFormat:
+                  summary: Formato inválido
+                  value:
+                    data:
+                      isValid: false
+                      invalidReason: invalid_format
+                    accessibility:
+                      plainLanguage: El formato de la transacción es inválido
+                      explanation: La transacción no pudo ser procesada porque el formato no es válido. Verifica que sea una transacción BSV correctamente firmada.
+                      stepByStep:
+                        - Verifica que estés usando el formato hexadecimal correcto
+                        - Asegúrate de que la transacción esté firmada
+                        - Revisa que sea una transacción BSV válida
+                      hints:
+                        ifError: Genera la transacción usando una librería BSV oficial como @bsv/sdk
+                        commonMistakes:
+                          - Enviar transacción sin firmar
+                          - Usar formato incorrecto (base64 en lugar de hex)
+                        nextSteps: Consulta EXAMPLES.md para ver cómo crear transacciones válidas
+                      language: es
+                      audioFriendly: true
+                      cognitiveLevel: simple
+        '400':
+          description: Request inválido (schema validation failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validationError:
+                  summary: Error de validación
+                  value:
+                    error: Validation failed
+                    message: "Tipo inválido: esperado exact, recibido other"
+                    details:
+                      field: payload.scheme
+                      expectedType: exact
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /settle:
+    post:
+      summary: Broadcastear transacción a blockchain BSV
+      description: |
+        Transmite una transacción BSV válida a la blockchain testnet. La transacción debe
+        haber sido previamente validada con /verify.
+
+        **Advertencia**: Este endpoint realiza broadcast REAL a blockchain. La transacción
+        será permanente y no reversible.
+
+        **Flujo recomendado**:
+        1. Validar primero con POST /verify
+        2. Si isValid=true, llamar a POST /settle
+        3. Guardar el txid retornado para tracking
+
+        **Reintentabilidad**: Este endpoint es idempotente. Si la transacción ya fue
+        broadcasted, retornará success=false con errorReason=already_broadcast pero
+        incluirá el txid original.
+
+      tags:
+        - settlement
+      operationId: settleTransaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettleRequest'
+            examples:
+              validTransaction:
+                summary: Transacción para settlement
+                value:
+                  payload:
+                    x402Version: 1
+                    scheme: exact
+                    network: bsv-testnet
+                    payload:
+                      transaction: "0100000001a6b97044316c6f7e31894e0f2a2e7e3e3e9e7e3e9e7e3e9e7e3e9e7e3e9e01000000484730440220..."
+                  paymentRequirements:
+                    scheme: exact
+                    network: bsv-testnet
+                    maxAmountRequired: "500"
+                    resource: https://api.example.com/protected-resource
+                    payTo: mqBPdELHZ2Hwvq7MQmZi3hGN6aBBvTkEjf
+                    maxTimeoutSeconds: 300
+      responses:
+        '200':
+          description: Resultado de broadcast con metadata accesible
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/AccessibleResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SettleResponse'
+              examples:
+                success:
+                  summary: Broadcast exitoso
+                  value:
+                    data:
+                      success: true
+                      transaction: 8f3e7d6c5b4a3e2d1c0b9a8f7e6d5c4b3a2e1d0c9b8a7f6e5d4c3b2a1e0d9c8
+                      payer: mxVFsFW5N4mu1HPkxPttorvocvzeZ7KZyk
+                      network: bsv-testnet
+                    accessibility:
+                      plainLanguage: El pago se completó exitosamente
+                      explanation: Tu transacción fue transmitida a la blockchain BSV testnet con ID 8f3e7d6c5b4a3e2d1c0b9a8f7e6d5c4b3a2e1d0c9b8a7f6e5d4c3b2a1e0d9c8
+                      stepByStep:
+                        - Recibimos tu transacción firmada
+                        - La validamos contra la red BSV
+                        - La transmitimos a la blockchain
+                        - La transacción está confirmada en la red
+                      hints:
+                        nextSteps: Puedes verificar tu transacción en WhatsOnChain con el ID proporcionado
+                      language: es
+                      audioFriendly: true
+                      cognitiveLevel: simple
+                alreadyBroadcast:
+                  summary: Transacción ya broadcasted
+                  value:
+                    data:
+                      success: false
+                      errorReason: already_broadcast
+                      transaction: 8f3e7d6c5b4a3e2d1c0b9a8f7e6d5c4b3a2e1d0c9b8a7f6e5d4c3b2a1e0d9c8
+                      payer: mxVFsFW5N4mu1HPkxPttorvocvzeZ7KZyk
+                      network: bsv-testnet
+                    accessibility:
+                      plainLanguage: Esta transacción ya fue procesada anteriormente
+                      explanation: La transacción con ID 8f3e7d6c5b4a3e2d1c0b9a8f7e6d5c4b3a2e1d0c9b8a7f6e5d4c3b2a1e0d9c8 ya existe en la blockchain. No es necesario enviarla de nuevo.
+                      stepByStep:
+                        - Detectamos que la transacción ya existe
+                        - No se realizó un nuevo broadcast
+                        - El pago ya fue completado previamente
+                      hints:
+                        nextSteps: Puedes verificar el estado de tu transacción en WhatsOnChain usando el txid proporcionado
+                      language: es
+                      audioFriendly: true
+                      cognitiveLevel: simple
+                networkError:
+                  summary: Error de red
+                  value:
+                    data:
+                      success: false
+                      errorReason: network_error
+                      payer: mxVFsFW5N4mu1HPkxPttorvocvzeZ7KZyk
+                      network: bsv-testnet
+                    accessibility:
+                      plainLanguage: No pudimos conectar con la red BSV
+                      explanation: El servicio de blockchain BSV no respondió a tiempo. Esto es temporal y no has perdido fondos. Tu transacción es válida.
+                      stepByStep:
+                        - Detectamos un problema de conexión con la red BSV
+                        - Intentamos 3 veces sin éxito
+                        - El problema es temporal, no es tu transacción
+                        - Espera unos segundos y vuelve a intentar
+                      hints:
+                        ifError: Reintenta en 10-30 segundos. La red BSV suele responder rápido
+                        commonMistakes:
+                          - Intentar cambiar la transacción (no es necesario, la transacción es válida)
+                        nextSteps: Si el error persiste después de 5 intentos, contacta soporte
+                      language: es
+                      audioFriendly: true
+                      cognitiveLevel: medium
+                broadcastFailed:
+                  summary: Broadcast rechazado
+                  value:
+                    data:
+                      success: false
+                      errorReason: broadcast_failed
+                      payer: mxVFsFW5N4mu1HPkxPttorvocvzeZ7KZyk
+                      network: bsv-testnet
+                    accessibility:
+                      plainLanguage: La red BSV rechazó la transacción
+                      explanation: La blockchain no aceptó tu transacción. Esto puede deberse a fondos insuficientes o problemas con el formato de la transacción.
+                      stepByStep:
+                        - Enviamos tu transacción a la red BSV
+                        - La red la rechazó por un problema técnico
+                        - Verifica que tengas fondos suficientes
+                        - Revisa que la transacción sea válida
+                      hints:
+                        ifError: Verifica tu balance y crea una nueva transacción válida
+                        commonMistakes:
+                          - Usar outputs ya gastados (double spend)
+                          - No incluir suficientes fees
+                          - Fondos insuficientes en la dirección origen
+                        nextSteps: Consulta el estado de tus UTXOs en WhatsOnChain antes de crear una nueva transacción
+                      language: es
+                      audioFriendly: true
+                      cognitiveLevel: medium
+        '400':
+          description: Request inválido (schema validation failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    # Core X402 Schemas
+
+    PaymentRequirements:
+      type: object
+      description: |
+        Requisitos de pago según protocolo X402. Define el monto exacto, dirección de destino,
+        y red blockchain que el pagador debe usar.
+      required:
+        - scheme
+        - network
+        - maxAmountRequired
+        - resource
+        - payTo
+        - maxTimeoutSeconds
+      properties:
+        scheme:
+          type: string
+          enum: [exact]
+          description: |
+            Esquema de pago. Solo "exact" soportado en MVP.
+
+            **Español**: Tipo de esquema de pago
+        network:
+          type: string
+          enum: [bsv-testnet]
+          description: |
+            Red blockchain. Solo testnet soportado en MVP.
+
+            **Español**: Red de blockchain a usar
+        maxAmountRequired:
+          type: string
+          pattern: '^\d+$'
+          description: |
+            Monto máximo requerido en satoshis (unidad mínima de BSV).
+            Debe ser string numérico sin decimales.
+
+            **Español**: Cantidad de satoshis a pagar
+          example: "500"
+        resource:
+          type: string
+          format: uri
+          description: |
+            URL del recurso protegido que requiere pago.
+
+            **Español**: Dirección web del recurso que estás pagando
+          example: https://api.example.com/protected-resource
+        description:
+          type: string
+          description: |
+            Descripción opcional del recurso o servicio.
+
+            **Español**: Descripción de lo que estás pagando
+          example: Acceso premium a API de datos
+        payTo:
+          type: string
+          minLength: 25
+          maxLength: 35
+          description: |
+            Dirección BSV testnet de destino del pago.
+            Debe comenzar con 'm' o 'n' (prefijos de testnet).
+
+            **Español**: Dirección de billetera BSV que recibirá el pago
+          example: mqBPdELHZ2Hwvq7MQmZi3hGN6aBBvTkEjf
+        maxTimeoutSeconds:
+          type: number
+          minimum: 1
+          description: |
+            Tiempo límite en segundos para completar el pago.
+
+            **Español**: Tiempo máximo para completar el pago
+          example: 300
+
+    PaymentPayload:
+      type: object
+      description: |
+        Transacción BSV firmada enviada por el cliente según protocolo X402.
+        Contiene la transacción serializada en hexadecimal.
+      required:
+        - x402Version
+        - scheme
+        - network
+        - payload
+      properties:
+        x402Version:
+          type: number
+          enum: [1]
+          description: |
+            Versión del protocolo X402.
+
+            **Español**: Versión del protocolo de pago
+        scheme:
+          type: string
+          enum: [exact]
+          description: |
+            Esquema de pago (debe coincidir con PaymentRequirements).
+
+            **Español**: Tipo de esquema de pago
+        network:
+          type: string
+          enum: [bsv-testnet]
+          description: |
+            Red blockchain (debe coincidir con PaymentRequirements).
+
+            **Español**: Red de blockchain
+        payload:
+          type: object
+          required:
+            - transaction
+          properties:
+            transaction:
+              type: string
+              minLength: 1
+              description: |
+                Transacción BSV firmada en formato hexadecimal.
+
+                **Español**: Transacción firmada en formato técnico (hexadecimal)
+              example: "0100000001a6b97044316c6f7e31894e0f2a2e7e3e3e9e7e3e9e7e3e9e7e3e9e7e3e9e01000000484730440220..."
+
+    # Request/Response Schemas
+
+    VerifyRequest:
+      type: object
+      description: |
+        Request para verificar transacción sin broadcast.
+
+        **Español**: Solicitud para validar un pago antes de enviarlo a la blockchain
+      required:
+        - payload
+        - paymentRequirements
+      properties:
+        payload:
+          $ref: '#/components/schemas/PaymentPayload'
+        paymentRequirements:
+          $ref: '#/components/schemas/PaymentRequirements'
+
+    VerifyResponse:
+      type: object
+      description: |
+        Response de verificación indicando si la transacción es válida.
+
+        **Español**: Resultado de la validación del pago
+      required:
+        - isValid
+      properties:
+        isValid:
+          type: boolean
+          description: |
+            Indica si la transacción cumple con todos los requisitos.
+
+            **Español**: ¿Es válido el pago?
+        invalidReason:
+          type: string
+          enum:
+            - invalid_format
+            - invalid_amount
+            - invalid_address
+          description: |
+            Código de error si isValid=false.
+
+            **Valores posibles**:
+            - invalid_format: Formato de transacción inválido
+            - invalid_amount: Monto incorrecto
+            - invalid_address: Dirección de destino incorrecta
+
+            **Español**: Razón por la cual el pago no es válido
+        payer:
+          type: string
+          description: |
+            Dirección BSV del pagador (extraída de la transacción).
+
+            **Español**: Dirección de billetera que envía el pago
+
+    SettleRequest:
+      type: object
+      description: |
+        Request para broadcastear transacción a blockchain.
+
+        **Español**: Solicitud para enviar el pago a la blockchain
+      required:
+        - payload
+        - paymentRequirements
+      properties:
+        payload:
+          $ref: '#/components/schemas/PaymentPayload'
+        paymentRequirements:
+          $ref: '#/components/schemas/PaymentRequirements'
+
+    SettleResponse:
+      type: object
+      description: |
+        Response de settlement indicando si el broadcast fue exitoso.
+
+        **Español**: Resultado del envío del pago a la blockchain
+      required:
+        - success
+        - network
+      properties:
+        success:
+          type: boolean
+          description: |
+            Indica si el broadcast a blockchain fue exitoso.
+
+            **Español**: ¿Se completó el pago exitosamente?
+        errorReason:
+          type: string
+          enum:
+            - broadcast_failed
+            - already_broadcast
+            - network_error
+          description: |
+            Código de error si success=false.
+
+            **Valores posibles**:
+            - broadcast_failed: La blockchain rechazó la transacción
+            - already_broadcast: La transacción ya existe en blockchain
+            - network_error: Error de conexión con la red BSV
+
+            **Español**: Razón por la cual el pago falló
+        transaction:
+          type: string
+          description: |
+            Transaction ID (txid) en blockchain. Presente si success=true
+            o si errorReason=already_broadcast.
+
+            **Español**: Identificador único de la transacción en la blockchain
+          example: 8f3e7d6c5b4a3e2d1c0b9a8f7e6d5c4b3a2e1d0c9b8a7f6e5d4c3b2a1e0d9c8
+        payer:
+          type: string
+          description: |
+            Dirección BSV del pagador.
+
+            **Español**: Dirección de billetera que envió el pago
+        network:
+          type: string
+          enum: [bsv-testnet]
+          description: |
+            Red donde se broadcasted la transacción.
+
+            **Español**: Red de blockchain donde se envió el pago
+
+    SupportedNetworksResponse:
+      type: object
+      description: |
+        Lista de redes blockchain soportadas por el facilitador.
+
+        **Español**: Redes disponibles para realizar pagos
+      required:
+        - networks
+      properties:
+        networks:
+          type: array
+          items:
+            type: string
+          description: |
+            Array de identificadores de redes soportadas.
+
+            **Español**: Lista de redes blockchain disponibles
+          example: ["bsv-testnet"]
+
+    # Accessibility Schemas
+
+    Hints:
+      type: object
+      description: |
+        Sugerencias accionables para resolver errores y próximos pasos.
+
+        **Español**: Consejos y siguientes pasos recomendados
+      properties:
+        ifError:
+          type: string
+          description: |
+            Cómo resolver el error actual.
+
+            **Español**: Qué hacer para solucionar el problema
+          example: Crea una nueva transacción con 500 satoshis exactos
+        commonMistakes:
+          type: array
+          items:
+            type: string
+          description: |
+            Errores frecuentes que los usuarios deben evitar.
+
+            **Español**: Errores comunes que debes evitar
+          example:
+            - Confundir satoshis con BSV (1 BSV = 100,000,000 satoshis)
+            - Olvidar incluir fees en el cálculo del monto
+        nextSteps:
+          type: string
+          description: |
+            Qué hacer después (siguiente acción recomendada).
+
+            **Español**: Próximo paso a seguir
+          example: Llama al endpoint /settle para completar el pago
+
+    AccessibleMetadata:
+      type: object
+      description: |
+        Metadata de accesibilidad universal adjunta a todos los responses.
+        Permite a clientes LLM interpretar resultados y explicarlos en lenguaje claro.
+
+        **Español**: Información adicional para facilitar la comprensión
+      required:
+        - plainLanguage
+        - explanation
+        - stepByStep
+        - hints
+        - language
+        - audioFriendly
+        - cognitiveLevel
+      properties:
+        plainLanguage:
+          type: string
+          maxLength: 100
+          description: |
+            Mensaje conciso ejecutivo (máximo 100 caracteres).
+
+            **Español**: Resumen breve de lo que sucedió
+          example: El pago se verificó correctamente
+        explanation:
+          type: string
+          maxLength: 300
+          description: |
+            Descripción detallada (máximo 300 caracteres).
+
+            **Español**: Explicación detallada de lo que sucedió
+          example: Tu transacción cumple con todos los requisitos - monto de 500 satoshis enviados a mqBPdELHZ2Hwvq7MQmZi3hGN6aBBvTkEjf
+        stepByStep:
+          type: array
+          maxItems: 5
+          items:
+            type: string
+            maxLength: 80
+          description: |
+            Pasos que ocurrieron o pasos para resolver (máximo 5 items de 80 caracteres).
+
+            **Español**: Pasos que se siguieron o pasos para solucionar
+          example:
+            - Recibimos tu transacción
+            - Validamos el monto y la dirección de destino
+            - La transacción está lista para ser procesada
+            - Puedes proceder con el paso de settlement
+        hints:
+          $ref: '#/components/schemas/Hints'
+        language:
+          type: string
+          enum: [es]
+          description: |
+            Idioma de los mensajes (siempre español en MVP).
+
+            **Español**: Idioma de los mensajes
+        audioFriendly:
+          type: boolean
+          description: |
+            Si es compatible con text-to-speech (TTS).
+            true para mensajes importantes destinados a usuarios.
+
+            **Español**: ¿Es compatible con lectura por voz?
+          example: true
+        cognitiveLevel:
+          type: string
+          enum: [simple, medium, advanced]
+          description: |
+            Nivel de complejidad cognitiva del mensaje.
+
+            **Valores**:
+            - simple: Operaciones exitosas y errores básicos
+            - medium: Errores de red y troubleshooting
+            - advanced: Debugging técnico (no usado en MVP)
+
+            **Español**: Nivel de dificultad del mensaje
+          example: simple
+
+    AccessibleResponse:
+      type: object
+      description: |
+        Wrapper genérico que envuelve todos los responses del facilitador.
+        Agrega metadata accesible de forma consistente.
+
+        **Español**: Respuesta con información accesible
+      required:
+        - data
+        - accessibility
+      properties:
+        data:
+          description: |
+            Response core (VerifyResponse, SettleResponse, SupportedNetworksResponse).
+
+            **Español**: Datos principales de la respuesta
+          oneOf:
+            - $ref: '#/components/schemas/VerifyResponse'
+            - $ref: '#/components/schemas/SettleResponse'
+            - $ref: '#/components/schemas/SupportedNetworksResponse'
+        accessibility:
+          $ref: '#/components/schemas/AccessibleMetadata'
+
+    # Error Schemas
+
+    ErrorResponse:
+      type: object
+      description: |
+        Response de error genérico (400, 500).
+
+        **Español**: Respuesta de error
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: |
+            Código de error genérico.
+
+            **Español**: Tipo de error
+          example: Validation failed
+        message:
+          type: string
+          description: |
+            Mensaje de error en español claro.
+
+            **Español**: Descripción del error
+          example: "Tipo inválido: esperado exact, recibido other"
+        details:
+          type: object
+          description: |
+            Detalles adicionales del error (opcional).
+
+            **Español**: Información adicional sobre el error
+          additionalProperties: true
+
+security: []  # No authentication required (public facilitator)

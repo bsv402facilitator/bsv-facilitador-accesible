@@ -1,0 +1,34 @@
+name = "x402-resource-server-accesible"
+main = "index.ts"
+compatibility_date = "2024-11-01"
+
+# Tipo de worker
+[observability]
+enabled = true
+
+# Variables de entorno (valores por defecto para desarrollo con testnet)
+[env.dev.vars]
+# URL del facilitador en desarrollo local
+FACILITATOR_URL = "http://localhost:8787"
+# Dirección BSV testnet para recibir pagos (dirección de ejemplo)
+PAYOUT_ADDRESS = "mhSDV8SPswwXCGFpkE8pTWUftVnSW6g3qk"
+# Red de desarrollo (testnet)
+NETWORK = "testnet"
+
+# Configuración para producción (mainnet por defecto)
+[env.production]
+name = "x402-resource-server-accesible-prod"
+
+# Service binding al facilitador (recomendado para producción)
+# Esto permite comunicación directa entre workers sin pasar por HTTP público
+[[env.production.services]]
+binding = "FACILITATOR"
+service = "facilitador-bsv-x402-accesible"
+
+[env.production.vars]
+# En producción, usa la URL pública del facilitador como fallback
+FACILITATOR_URL = "https://facilitador-bsv-x402-accesible.andresleontest.workers.dev"
+# Dirección BSV mainnet para recibir pagos en producción
+PAYOUT_ADDRESS = "1LiSSPcm8tLjCDPqQxCR5oPqvTUkYCpJ86"
+# Red de producción (mainnet)
+NETWORK = "mainnet"

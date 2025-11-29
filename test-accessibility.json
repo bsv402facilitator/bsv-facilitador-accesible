@@ -1,0 +1,24 @@
+{
+  "payload": {
+    "x402Version": 1,
+    "scheme": "exact",
+    "network": "bsv-testnet",
+    "payload": {
+      "transaction": "0100000001000000000000000000000000000000000000000000000000000000000000000000000000ffffffff01e803000000000000000000000000"
+    }
+  },
+  "paymentRequirements": {
+    "scheme": "exact",
+    "network": "bsv-testnet",
+    "maxAmountRequired": "1000",
+    "resource": "https://example.com/api/data",
+    "description": "Test payment",
+    "payTo": "mhSDV8SPswwXCGFpkE8pTWUftVnSW6g3qk",
+    "maxTimeoutSeconds": 300
+  },
+  "accessibilityPreferences": {
+    "language": "en",
+    "cognitiveLevel": "advanced",
+    "audioFriendly": false
+  }
+}
