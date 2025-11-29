@@ -1,5 +1,10 @@
 import { describe, test, expect } from 'vitest';
-import { messages, createMetadataFromTemplate } from '../../../src/facilitator/accessibility/i18n';
+import {
+  messages,
+  messagesEN,
+  getMessagesByLanguage,
+  createMetadataFromTemplate,
+} from '../../../src/facilitator/accessibility/i18n';
 
 describe('i18n messages validation', () => {
   describe('plainLanguage length limits', () => {
@@ -458,5 +463,176 @@ describe('createMetadataFromTemplate', () => {
 
     expect(metadata.plainLanguage).toBe(template.plainLanguage);
     expect(metadata.explanation).toBe(template.explanation);
+  });
+});
+
+// ============================================================================
+// Phase 1 Backward Compatibility Tests
+// ============================================================================
+
+describe('Phase 1 Backward Compatibility', () => {
+  describe('i18n Directory Refactoring', () => {
+    test('messages export should still work', () => {
+      expect(messages).toBeDefined();
+      expect(messages.errors).toBeDefined();
+      expect(messages.success).toBeDefined();
+    });
+
+    test('messagesEN export should still work', () => {
+      expect(messagesEN).toBeDefined();
+      expect(messagesEN.errors).toBeDefined();
+      expect(messagesEN.success).toBeDefined();
+    });
+
+    test('getMessagesByLanguage should return Spanish messages', () => {
+      const msgs = getMessagesByLanguage('es');
+      expect(msgs).toBe(messages);
+      expect(msgs.errors.verify.invalidAmount).toBeDefined();
+    });
+
+    test('getMessagesByLanguage should return English messages', () => {
+      const msgs = getMessagesByLanguage('en');
+      expect(msgs).toBe(messagesEN);
+      expect(msgs.errors.verify.invalidAmount).toBeDefined();
+    });
+
+    test('Spanish messages structure remains unchanged', () => {
+      expect(messages.errors.verify.invalidAmount).toHaveProperty('plainLanguage');
+      expect(messages.errors.verify.invalidAmount).toHaveProperty('explanation');
+      expect(messages.errors.verify.invalidAmount).toHaveProperty('stepByStep');
+      expect(messages.errors.verify.invalidAmount).toHaveProperty('hints');
+    });
+
+    test('English messages structure remains unchanged', () => {
+      expect(messagesEN.errors.verify.invalidAmount).toHaveProperty('plainLanguage');
+      expect(messagesEN.errors.verify.invalidAmount).toHaveProperty('explanation');
+      expect(messagesEN.errors.verify.invalidAmount).toHaveProperty('stepByStep');
+      expect(messagesEN.errors.verify.invalidAmount).toHaveProperty('hints');
+    });
+
+    test('createMetadataFromTemplate with Spanish messages works', () => {
+      const template = messages.errors.verify.invalidAmount;
+      const metadata = createMetadataFromTemplate(template, { required: '1000', actual: '500' });
+
+      expect(metadata.plainLanguage).toBeDefined();
+      expect(metadata.explanation).toContain('1000');
+      expect(metadata.language).toBe('es');
+    });
+
+    test('createMetadataFromTemplate with English language parameter works', () => {
+      const template = messagesEN.errors.verify.invalidAmount;
+      const metadata = createMetadataFromTemplate(
+        template,
+        { required: '1000', actual: '500' },
+        'simple',
+        true,
+        'en'
+      );
+
+      expect(metadata.plainLanguage).toBeDefined();
+      expect(metadata.explanation).toContain('1000');
+      expect(metadata.language).toBe('en');
+    });
+  });
+
+  describe('Message Content Integrity', () => {
+    test('Spanish message content matches original', () => {
+      expect(messages.errors.verify.invalidAmount.plainLanguage).toBe(
+        'El monto del pago es incorrecto'
+      );
+      expect(messages.success.verifyValid.plainLanguage).toBe('El pago se verificó correctamente');
+    });
+
+    test('English message content matches original', () => {
+      expect(messagesEN.errors.verify.invalidAmount.plainLanguage).toBe(
+        'Payment amount is incorrect'
+      );
+      expect(messagesEN.success.verifyValid.plainLanguage).toBe('Payment verified successfully');
+    });
+
+    test('All Spanish error messages present', () => {
+      expect(messages.errors.verify.invalidAmount).toBeDefined();
+      expect(messages.errors.verify.invalidAddress).toBeDefined();
+      expect(messages.errors.verify.invalidFormat).toBeDefined();
+      expect(messages.errors.settle.alreadyBroadcast).toBeDefined();
+      expect(messages.errors.settle.networkError).toBeDefined();
+      expect(messages.errors.settle.broadcastFailed).toBeDefined();
+    });
+
+    test('All English error messages present', () => {
+      expect(messagesEN.errors.verify.invalidAmount).toBeDefined();
+      expect(messagesEN.errors.verify.invalidAddress).toBeDefined();
+      expect(messagesEN.errors.verify.invalidFormat).toBeDefined();
+      expect(messagesEN.errors.settle.alreadyBroadcast).toBeDefined();
+      expect(messagesEN.errors.settle.networkError).toBeDefined();
+      expect(messagesEN.errors.settle.broadcastFailed).toBeDefined();
+    });
+
+    test('All success messages present in both languages', () => {
+      expect(messages.success.verifyValid).toBeDefined();
+      expect(messages.success.settleSuccess).toBeDefined();
+      expect(messages.success.supportedNetworks).toBeDefined();
+
+      expect(messagesEN.success.verifyValid).toBeDefined();
+      expect(messagesEN.success.settleSuccess).toBeDefined();
+      expect(messagesEN.success.supportedNetworks).toBeDefined();
+    });
+
+    test('Placeholders still work in Spanish messages', () => {
+      expect(messages.errors.verify.invalidAmount.explanation).toContain('{required}');
+      expect(messages.errors.verify.invalidAmount.explanation).toContain('{actual}');
+      expect(messages.success.verifyValid.explanation).toContain('{amount}');
+      expect(messages.success.verifyValid.explanation).toContain('{address}');
+    });
+
+    test('Placeholders still work in English messages', () => {
+      expect(messagesEN.errors.verify.invalidAmount.explanation).toContain('{required}');
+      expect(messagesEN.errors.verify.invalidAmount.explanation).toContain('{actual}');
+      expect(messagesEN.success.verifyValid.explanation).toContain('{amount}');
+      expect(messagesEN.success.verifyValid.explanation).toContain('{address}');
+    });
+  });
+
+  describe('English Messages Validation', () => {
+    test('English messages follow same length constraints', () => {
+      const allMessagesEN = [
+        ...Object.values(messagesEN.errors.verify),
+        ...Object.values(messagesEN.errors.settle),
+        ...Object.values(messagesEN.success),
+      ];
+
+      for (const message of allMessagesEN) {
+        expect(message.plainLanguage.length).toBeLessThanOrEqual(100);
+        expect(message.explanation.length).toBeLessThanOrEqual(300);
+        expect(message.stepByStep.length).toBeLessThanOrEqual(5);
+
+        for (const step of message.stepByStep) {
+          expect(step.length).toBeLessThanOrEqual(80);
+        }
+      }
+    });
+
+    test('English messages are actually in English', () => {
+      const englishIndicators = ['the', 'is', 'are', 'was', 'your', 'with', 'to', 'for', 'and'];
+
+      const allMessagesEN = [
+        ...Object.values(messagesEN.errors.verify),
+        ...Object.values(messagesEN.errors.settle),
+        ...Object.values(messagesEN.success),
+      ];
+
+      for (const message of allMessagesEN) {
+        const text = (
+          message.plainLanguage +
+          ' ' +
+          message.explanation +
+          ' ' +
+          message.stepByStep.join(' ')
+        ).toLowerCase();
+
+        const hasEnglishIndicator = englishIndicators.some((indicator) => text.includes(indicator));
+        expect(hasEnglishIndicator).toBe(true);
+      }
+    });
   });
 });

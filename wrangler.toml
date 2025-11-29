@@ -11,6 +11,11 @@ enabled = true
 binding = "METADATA_CACHE"
 id = "5f8ad74b43c048538ac0a22ef165184d"
 
+# KV Namespace for user accessibility preferences (V2)
+[[kv_namespaces]]
+binding = "USER_PREFERENCES"
+id = "5b534423fea04800b9580ba0464dc208"
+
 # Development configuration (testnet para desarrollo)
 [env.development]
 name = "facilitador-bsv-x402-accesible-dev"
@@ -18,17 +23,31 @@ name = "facilitador-bsv-x402-accesible-dev"
 [env.development.vars]
 WALLET_ADDRESS = "mhSDV8SPswwXCGFpkE8pTWUftVnSW6g3qk"
 NETWORK = "testnet"
-# AI Configuration - start with low rollout
+# V1 AI Configuration - start with low rollout
 AI_ENABLED = "true"
 AI_ROLLOUT_PERCENTAGE = "20"
 OPENAI_MODEL_DEFAULT = "gpt-4o-mini"
 OPENAI_MODEL_COMPLEX = "gpt-4o-mini"
 CACHE_TTL_GENERIC = "604800"   # 7 days in seconds
 CACHE_TTL_SPECIFIC = "86400"   # 24 hours in seconds
+# V2 AI Configuration
+OPENAI_MODEL_SIMPLE = "gpt-3.5-turbo"
+OPENAI_MODEL_EXPERT = "gpt-4o"
+USER_PREFERENCES_TTL = "2592000"   # 30 days in seconds
+# V2 Feature Flags (start disabled, enable in later phases)
+WCAG_COMPLIANCE_ENABLED = "true"
+MULTILANG_ENABLED = "false"
+FORMAT_CONVERSION_ENABLED = "false"
+ADAPTIVE_COMPLEXITY_ENABLED = "false"
+READING_LEVEL_ANALYSIS = "false"
 
 [[env.development.kv_namespaces]]
 binding = "METADATA_CACHE"
 id = "55a8c9286a624d44ae6a8d8a7ab6df31"
+
+[[env.development.kv_namespaces]]
+binding = "USER_PREFERENCES"
+id = "d988b944e2514fa1831299920c7e7621"
 
 # Production configuration (mainnet por defecto)
 [env.production]
@@ -37,14 +56,28 @@ name = "facilitador-bsv-x402-accesible"
 [env.production.vars]
 WALLET_ADDRESS = "1LiSSPcm8tLjCDPqQxCR5oPqvTUkYCpJ86"
 NETWORK = "mainnet"
-# AI Configuration - gradual rollout (20 -> 50 -> 100)
+# V1 AI Configuration - gradual rollout (20 -> 50 -> 100)
 AI_ENABLED = "true"
 AI_ROLLOUT_PERCENTAGE = "100"
 OPENAI_MODEL_DEFAULT = "gpt-3.5-turbo"
 OPENAI_MODEL_COMPLEX = "gpt-4o-mini"
 CACHE_TTL_GENERIC = "604800"   # 7 days in seconds
 CACHE_TTL_SPECIFIC = "86400"   # 24 hours in seconds
+# V2 AI Configuration
+OPENAI_MODEL_SIMPLE = "gpt-3.5-turbo"
+OPENAI_MODEL_EXPERT = "gpt-4o"
+USER_PREFERENCES_TTL = "2592000"   # 30 days in seconds
+# V2 Feature Flags (start disabled, enable in later phases)
+WCAG_COMPLIANCE_ENABLED = "true"
+MULTILANG_ENABLED = "false"
+FORMAT_CONVERSION_ENABLED = "false"
+ADAPTIVE_COMPLEXITY_ENABLED = "false"
+READING_LEVEL_ANALYSIS = "false"
 
 [[env.production.kv_namespaces]]
 binding = "METADATA_CACHE"
 id = "5f8ad74b43c048538ac0a22ef165184d"
+
+[[env.production.kv_namespaces]]
+binding = "USER_PREFERENCES"
+id = "5b534423fea04800b9580ba0464dc208"
