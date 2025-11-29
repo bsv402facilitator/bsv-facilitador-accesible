@@ -196,3 +196,46 @@ export interface AccessibleResponse<T> {
   data: T;
   accessibility: AccessibleMetadata;
 }
+
+// ============================================================================
+// AI Metadata Context
+// ============================================================================
+
+/**
+ * Context information for generating metadata
+ */
+export interface MetadataContext {
+  amount?: string;
+  address?: string;
+  txid?: string;
+  required?: string;
+  actual?: string;
+  [key: string]: string | undefined;
+}
+
+// ============================================================================
+// Cloudflare Workers Environment
+// ============================================================================
+
+/**
+ * Environment bindings for Cloudflare Workers
+ */
+export interface Env {
+  // Secrets
+  OPENAI_API_KEY: string;
+
+  // AI Config
+  AI_ENABLED?: string;
+  AI_ROLLOUT_PERCENTAGE?: string;
+  OPENAI_MODEL_DEFAULT?: string;
+  OPENAI_MODEL_COMPLEX?: string;
+  CACHE_TTL_GENERIC?: string;
+  CACHE_TTL_SPECIFIC?: string;
+
+  // KV Namespace
+  METADATA_CACHE?: KVNamespace;
+
+  // Existing BSV Config
+  WALLET_ADDRESS?: string;
+  NETWORK?: 'mainnet' | 'testnet';
+}
