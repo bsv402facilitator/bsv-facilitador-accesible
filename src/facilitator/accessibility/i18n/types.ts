@@ -19,8 +19,23 @@ export interface MessageTemplate {
 /**
  * V2 Message Template (Enhanced with additional fields)
  */
-export interface MessageTemplateV2 extends MessageTemplate {
+export interface MessageTemplateV2 {
+  plainLanguage: string;
+  explanation: string;
   detailedExplanation?: string;
+  stepByStep: Array<string | { text: string; icon?: string; context?: string }>;
+  hints: {
+    ifError?: string;
+    commonMistakes?: string[];
+    nextSteps?: string;
+    troubleshooting?: string;
+    relatedResources?: Array<{
+      title: string;
+      url: string;
+      type: string;
+    }>;
+    safeguards?: string[];
+  };
   glossary?: Record<string, string>;
   examples?: Array<{
     scenario: string;
