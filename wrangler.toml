@@ -6,6 +6,11 @@ compatibility_flags = ["nodejs_compat_v2"]
 [observability]
 enabled = true
 
+# KV Namespace for AI metadata caching
+[[kv_namespaces]]
+binding = "METADATA_CACHE"
+id = "5f8ad74b43c048538ac0a22ef165184d"
+
 # Development configuration (testnet para desarrollo)
 [env.development]
 name = "facilitador-bsv-x402-accesible-dev"
@@ -13,6 +18,17 @@ name = "facilitador-bsv-x402-accesible-dev"
 [env.development.vars]
 WALLET_ADDRESS = "mhSDV8SPswwXCGFpkE8pTWUftVnSW6g3qk"
 NETWORK = "testnet"
+# AI Configuration - start with low rollout
+AI_ENABLED = "true"
+AI_ROLLOUT_PERCENTAGE = "20"
+OPENAI_MODEL_DEFAULT = "gpt-4o-mini"
+OPENAI_MODEL_COMPLEX = "gpt-4o-mini"
+CACHE_TTL_GENERIC = "604800"   # 7 days in seconds
+CACHE_TTL_SPECIFIC = "86400"   # 24 hours in seconds
+
+[[env.development.kv_namespaces]]
+binding = "METADATA_CACHE"
+id = "55a8c9286a624d44ae6a8d8a7ab6df31"
 
 # Production configuration (mainnet por defecto)
 [env.production]
@@ -21,3 +37,14 @@ name = "facilitador-bsv-x402-accesible"
 [env.production.vars]
 WALLET_ADDRESS = "1LiSSPcm8tLjCDPqQxCR5oPqvTUkYCpJ86"
 NETWORK = "mainnet"
+# AI Configuration - gradual rollout (20 -> 50 -> 100)
+AI_ENABLED = "true"
+AI_ROLLOUT_PERCENTAGE = "100"
+OPENAI_MODEL_DEFAULT = "gpt-3.5-turbo"
+OPENAI_MODEL_COMPLEX = "gpt-4o-mini"
+CACHE_TTL_GENERIC = "604800"   # 7 days in seconds
+CACHE_TTL_SPECIFIC = "86400"   # 24 hours in seconds
+
+[[env.production.kv_namespaces]]
+binding = "METADATA_CACHE"
+id = "5f8ad74b43c048538ac0a22ef165184d"

@@ -7,6 +7,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { cors } from 'hono/cors';
+import type { Context } from 'hono';
 import {
   VerifyRequestSchema,
   SettleRequestSchema,
@@ -15,15 +16,17 @@ import {
   SettleResponse,
   VerifyErrorCodes,
   SettleErrorCodes,
+  Env,
 } from './types';
 import { verifyTransaction } from './verify';
 import { settleTransaction } from './settle';
 import { createAccessibleResponse } from './accessibility/metadata';
+import { createMetadataWithAI } from './accessibility/ai-metadata';
 import { messages, createMetadataFromTemplate, getMessagesByLanguage } from './accessibility/i18n';
 import { logger } from './logger';
 import { handleGlobalError } from '../utils/error-handler';
 
-const app = new Hono();
+const app = new Hono<{ Bindings: Env }>();
 
 // ============================================================================
 // Middleware
@@ -62,17 +65,23 @@ app.onError((err, c) => {
 /**
  * GET / - Health check y redes soportadas
  */
-app.get('/', (c) => {
+app.get('/', async (c) => {
   // Permitir preferencias opcionales desde query params
   const language = (c.req.query('language') as 'es' | 'en') ?? 'es';
   const cognitiveLevel =
     (c.req.query('cognitiveLevel') as 'simple' | 'medium' | 'advanced') ?? 'simple';
   const audioFriendly = c.req.query('audioFriendly') !== 'false';
 
-  const msgs = getMessagesByLanguage(language);
+  const metadata = await createMetadataWithAI(
+    'success.supportedNetworks',
+    {},
+    { language, cognitiveLevel, audioFriendly },
+    c.env
+  );
+
   const response: AccessibleResponse<{ networks: string[] }> = createAccessibleResponse(
     { networks: ['bsv-mainnet', 'bsv-testnet'] },
-    createMetadataFromTemplate(msgs.success.supportedNetworks, {}, cognitiveLevel, audioFriendly, language)
+    metadata
   );
 
   return c.json(response);
@@ -116,65 +125,53 @@ app.post(
     // T043: Llamar a verifyTransaction() y envolver en AccessibleResponse
     const verifyResult = verifyTransaction(payload, paymentRequirements);
 
-    // Obtener mensajes en el idioma correcto
-    const msgs = getMessagesByLanguage(language);
+    // Generate metadata with AI
     let metadata;
+    let messageType: string;
+    let context: Record<string, string> = {};
 
     if (verifyResult.isValid) {
-      // Éxito: usar mensaje de success.verifyValid
-      metadata = createMetadataFromTemplate(
-        msgs.success.verifyValid,
-        {
-          amount: paymentRequirements.maxAmountRequired,
-          address: paymentRequirements.payTo,
-        },
-        cognitiveLevel,
-        audioFriendly,
-        language
-      );
+      // Success case
+      messageType = 'success.verifyValid';
+      context = {
+        amount: paymentRequirements.maxAmountRequired,
+        address: paymentRequirements.payTo,
+      };
     } else {
-      // Error: determinar qué mensaje usar según invalidReason
+      // Error case: determine message type based on invalidReason
       const invalidReason = verifyResult.invalidReason;
 
       switch (invalidReason) {
         case VerifyErrorCodes.INVALID_AMOUNT:
-          metadata = createMetadataFromTemplate(
-            msgs.errors.verify.invalidAmount,
-            {
-              required: paymentRequirements.maxAmountRequired,
-              actual: '0', // TODO: extraer monto real de la transacción
-            },
-            cognitiveLevel,
-            audioFriendly,
-            language
-          );
+          messageType = 'errors.verify.invalidAmount';
+          context = {
+            required: paymentRequirements.maxAmountRequired,
+            actual: '0', // TODO: extraer monto real de la transacción
+          };
           break;
 
         case VerifyErrorCodes.INVALID_ADDRESS:
-          metadata = createMetadataFromTemplate(
-            msgs.errors.verify.invalidAddress,
-            {
-              required: paymentRequirements.payTo,
-              actual: 'desconocida',
-            },
-            cognitiveLevel,
-            audioFriendly,
-            language
-          );
+          messageType = 'errors.verify.invalidAddress';
+          context = {
+            required: paymentRequirements.payTo,
+            actual: 'desconocida',
+          };
           break;
 
         case VerifyErrorCodes.INVALID_FORMAT:
         default:
-          metadata = createMetadataFromTemplate(
-            msgs.errors.verify.invalidFormat,
-            {},
-            cognitiveLevel,
-            audioFriendly,
-            language
-          );
+          messageType = 'errors.verify.invalidFormat';
+          context = {};
           break;
       }
     }
+
+    metadata = await createMetadataWithAI(
+      messageType,
+      context,
+      { language, cognitiveLevel, audioFriendly },
+      c.env
+    );
 
     const response: AccessibleResponse<VerifyResponse> = createAccessibleResponse(
       verifyResult,
@@ -222,60 +219,48 @@ app.post(
     // T069: Llamar a settleTransaction() y envolver en AccessibleResponse
     const settleResult = await settleTransaction(payload, paymentRequirements);
 
-    // Obtener mensajes en el idioma correcto
-    const msgs = getMessagesByLanguage(language);
+    // Generate metadata with AI
     let metadata;
+    let messageType: string;
+    let context: Record<string, string> = {};
 
     if (settleResult.success) {
-      // Éxito: usar mensaje de success.settleSuccess
-      metadata = createMetadataFromTemplate(
-        msgs.success.settleSuccess,
-        {
-          txid: settleResult.transaction || '',
-        },
-        cognitiveLevel,
-        audioFriendly,
-        language
-      );
+      // Success case
+      messageType = 'success.settleSuccess';
+      context = {
+        txid: settleResult.transaction || '',
+      };
     } else {
-      // Error: determinar qué mensaje usar según errorReason
+      // Error case: determine message type based on errorReason
       const errorReason = settleResult.errorReason;
 
       switch (errorReason) {
         case SettleErrorCodes.ALREADY_BROADCAST:
-          metadata = createMetadataFromTemplate(
-            msgs.errors.settle.alreadyBroadcast,
-            {
-              txid: settleResult.transaction || '',
-            },
-            cognitiveLevel,
-            audioFriendly,
-            language
-          );
+          messageType = 'errors.settle.alreadyBroadcast';
+          context = {
+            txid: settleResult.transaction || '',
+          };
           break;
 
         case SettleErrorCodes.NETWORK_ERROR:
-          metadata = createMetadataFromTemplate(
-            msgs.errors.settle.networkError,
-            {},
-            cognitiveLevel,
-            audioFriendly,
-            language
-          );
+          messageType = 'errors.settle.networkError';
+          context = {};
           break;
 
         case SettleErrorCodes.BROADCAST_FAILED:
         default:
-          metadata = createMetadataFromTemplate(
-            msgs.errors.settle.broadcastFailed,
-            {},
-            cognitiveLevel,
-            audioFriendly,
-            language
-          );
+          messageType = 'errors.settle.broadcastFailed';
+          context = {};
           break;
       }
     }
+
+    metadata = await createMetadataWithAI(
+      messageType,
+      context,
+      { language, cognitiveLevel, audioFriendly },
+      c.env
+    );
 
     const response: AccessibleResponse<SettleResponse> = createAccessibleResponse(
       settleResult,
