@@ -7,12 +7,9 @@ compatibility_flags = ["nodejs_compat_v2"]
 enabled = true
 
 # KV Namespace for AI metadata caching
-# Note: You need to create these namespaces with:
-# wrangler kv:namespace create "METADATA_CACHE"
-# wrangler kv:namespace create "METADATA_CACHE" --preview
 [[kv_namespaces]]
 binding = "METADATA_CACHE"
-id = "YOUR_PRODUCTION_KV_ID"  # Replace with actual KV namespace ID
+id = "5f8ad74b43c048538ac0a22ef165184d"
 
 # Development configuration (testnet para desarrollo)
 [env.development]
@@ -31,7 +28,7 @@ CACHE_TTL_SPECIFIC = "86400"   # 24 hours in seconds
 
 [[env.development.kv_namespaces]]
 binding = "METADATA_CACHE"
-id = "YOUR_DEV_KV_ID"  # Replace with actual dev KV namespace ID
+id = "55a8c9286a624d44ae6a8d8a7ab6df31"
 
 # Production configuration (mainnet por defecto)
 [env.production]
@@ -50,4 +47,4 @@ CACHE_TTL_SPECIFIC = "86400"   # 24 hours in seconds
 
 [[env.production.kv_namespaces]]
 binding = "METADATA_CACHE"
-id = "YOUR_PRODUCTION_KV_ID"  # Replace with actual production KV namespace ID
+id = "5f8ad74b43c048538ac0a22ef165184d"
