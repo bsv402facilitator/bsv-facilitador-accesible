@@ -455,7 +455,7 @@ describe('V3 Universal Accessibility - Integration Tests', () => {
 
     it('should generate metadata for invalid amount error', async () => {
       const preferences: AccessibilityPreferencesV3 = {
-        languages: ['es'],
+        languages: ['es', 'en'],
         primaryLanguage: 'es',
         audioFriendly: true,
         wcagLevel: 'AAA',

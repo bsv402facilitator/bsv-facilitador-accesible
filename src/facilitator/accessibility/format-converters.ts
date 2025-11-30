@@ -716,3 +716,276 @@ export function optimizeForBraille(text: string): string {
 
   return optimized;
 }
+
+// ==================== V3 FORMAT CONVERTERS ====================
+
+import type {
+  AccessibleResponseV3,
+  ContentSectionV3,
+  CognitiveLevelV3,
+} from '../types';
+
+/**
+ * Convert V3 response to XML format
+ */
+export function toXMLV3(response: AccessibleResponseV3<unknown>): string {
+  const meta = response.accessibility;
+  const primaryLang = Object.keys(meta.languages)[0] || 'es';
+  const langContent = meta.languages[primaryLang];
+  const simpleContent = langContent?.byLevel.simple;
+
+  if (!simpleContent) {
+    throw new Error('No simple level content found for XML conversion');
+  }
+
+  const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?>';
+  const root = buildXMLElement('AccessibleResponseV3', [
+    buildXMLElement('Data', [xmlEscape(JSON.stringify(response.data))]),
+    buildXMLElement('Content', [
+      buildXMLElement('PlainLanguage', [xmlEscape(simpleContent.plainLanguage)]),
+      buildXMLElement('Explanation', [xmlEscape(simpleContent.explanation)]),
+      buildXMLElement('Steps', simpleContent.stepByStep.map((s) =>
+        buildXMLElement('Step', [
+          s.icon ? buildXMLElement('Icon', [xmlEscape(s.icon)]) : '',
+          buildXMLElement('Text', [xmlEscape(s.text)]),
+          s.status ? buildXMLElement('Status', [xmlEscape(s.status)]) : '',
+        ])
+      )),
+    ]),
+    buildXMLElement('Languages', Object.entries(meta.languages).map(([code, _]) =>
+      buildXMLElement('Language', [buildXMLElement('Code', [code])])
+    )),
+    buildXMLElement('Metadata', [
+      buildXMLElement('Version', [String(meta.metadata.version)]),
+      buildXMLElement('GeneratedBy', [xmlEscape(meta.metadata.generatedBy)]),
+      buildXMLElement('WCAGLevel', [xmlEscape(meta.metadata.wcagLevel)]),
+    ]),
+  ]);
+
+  return `${xmlHeader}\n${root}`;
+}
+
+/**
+ * Convert V3 response to Markdown format
+ */
+export function toMarkdownV3(response: AccessibleResponseV3<unknown>): string {
+  const meta = response.accessibility;
+  const primaryLang = Object.keys(meta.languages)[0] || 'es';
+  const langContent = meta.languages[primaryLang];
+  const simpleContent = langContent?.byLevel.simple;
+
+  if (!simpleContent) {
+    throw new Error('No simple level content found for Markdown conversion');
+  }
+
+  let md = `# ${simpleContent.plainLanguage}\n\n`;
+  md += `${simpleContent.explanation}\n\n`;
+
+  if (simpleContent.detailedExplanation) {
+    md += `## Explicación Detallada\n\n${simpleContent.detailedExplanation}\n\n`;
+  }
+
+  if (simpleContent.stepByStep.length) {
+    md += `## Pasos\n\n`;
+    simpleContent.stepByStep.forEach((s, i) => {
+      md += `${i + 1}. ${s.icon || ''} ${s.text}`;
+      if (s.status) {
+        md += ` _(${s.status})_`;
+      }
+      md += '\n';
+    });
+    md += '\n';
+  }
+
+  if (simpleContent.glossary && Object.keys(simpleContent.glossary).length) {
+    md += `## Glosario\n\n`;
+    Object.entries(simpleContent.glossary).forEach(([term, def]) => {
+      md += `- **${term}**: ${def}\n`;
+    });
+    md += '\n';
+  }
+
+  if (simpleContent.hints?.nextSteps) {
+    md += `## Siguiente Paso\n\n${simpleContent.hints.nextSteps}\n`;
+  }
+
+  return md;
+}
+
+/**
+ * Convert V3 response to Plain Text format
+ */
+export function toPlainTextV3(response: AccessibleResponseV3<unknown>): string {
+  const meta = response.accessibility;
+  const primaryLang = Object.keys(meta.languages)[0] || 'es';
+  const langContent = meta.languages[primaryLang];
+  const simpleContent = langContent?.byLevel.simple;
+
+  if (!simpleContent) {
+    throw new Error('No simple level content found for Plain Text conversion');
+  }
+
+  const sections: string[] = [];
+
+  sections.push('=== RESPUESTA ACCESIBLE V3 ===\n');
+  sections.push(`RESUMEN: ${simpleContent.plainLanguage}\n`);
+  sections.push(`EXPLICACIÓN: ${simpleContent.explanation}\n`);
+
+  if (simpleContent.detailedExplanation) {
+    sections.push(`DETALLES: ${simpleContent.detailedExplanation}\n`);
+  }
+
+  if (simpleContent.stepByStep.length > 0) {
+    sections.push('PASOS:');
+    simpleContent.stepByStep.forEach((step, idx) => {
+      const stepText = step.icon ? `${step.icon} ${step.text}` : step.text;
+      sections.push(`${idx + 1}. ${stepText}`);
+    });
+    sections.push('');
+  }
+
+  if (simpleContent.hints?.ifError) {
+    sections.push(`SI HAY ERROR: ${simpleContent.hints.ifError}\n`);
+  }
+
+  if (simpleContent.glossary && Object.keys(simpleContent.glossary).length > 0) {
+    sections.push('GLOSARIO:');
+    Object.entries(simpleContent.glossary).forEach(([term, definition]) => {
+      sections.push(`- ${term}: ${definition}`);
+    });
+    sections.push('');
+  }
+
+  sections.push('=== DATOS ===');
+  sections.push(JSON.stringify(response.data, null, 2));
+  sections.push('');
+
+  sections.push(`Generado: ${meta.metadata.generatedAt}`);
+  sections.push(`WCAG: ${meta.metadata.wcagLevel}`);
+
+  return sections.join('\n');
+}
+
+/**
+ * Convert V3 response to HTML format
+ */
+export function toHTMLV3(response: AccessibleResponseV3<unknown>): string {
+  const meta = response.accessibility;
+  const primaryLang = Object.keys(meta.languages)[0] || 'es';
+  const langContent = meta.languages[primaryLang];
+  const simpleContent = langContent?.byLevel.simple;
+
+  if (!simpleContent) {
+    throw new Error('No simple level content found for HTML conversion');
+  }
+
+  const sections: string[] = [];
+
+  sections.push('<!DOCTYPE html>');
+  sections.push(`<html lang="${primaryLang}">`);
+  sections.push('<head>');
+  sections.push('<meta charset="UTF-8">');
+  sections.push('<meta name="viewport" content="width=device-width, initial-scale=1.0">');
+  sections.push('<title>Respuesta Accesible V3</title>');
+  sections.push('<style>');
+  sections.push('  body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }');
+  sections.push('  h1 { color: #333; }');
+  sections.push('  .summary { font-size: 1.2em; font-weight: bold; margin: 1em 0; }');
+  sections.push('  .steps { list-style: none; padding-left: 0; }');
+  sections.push('  .steps li { margin: 0.5em 0; }');
+  sections.push('</style>');
+  sections.push('</head>');
+  sections.push('<body>');
+
+  sections.push('<main role="main">');
+  sections.push(`<h1>${htmlEscape(simpleContent.plainLanguage)}</h1>`);
+  sections.push(`<p class="summary">${htmlEscape(simpleContent.explanation)}</p>`);
+
+  if (simpleContent.stepByStep.length > 0) {
+    sections.push('<h2>Pasos</h2>');
+    sections.push('<ol class="steps">');
+    simpleContent.stepByStep.forEach((step) => {
+      const stepText = step.icon
+        ? `<span aria-hidden="true">${htmlEscape(step.icon)}</span> ${htmlEscape(step.text)}`
+        : htmlEscape(step.text);
+      sections.push(`<li>${stepText}</li>`);
+    });
+    sections.push('</ol>');
+  }
+
+  if (simpleContent.glossary && Object.keys(simpleContent.glossary).length > 0) {
+    sections.push('<h2>Glosario</h2>');
+    sections.push('<dl>');
+    Object.entries(simpleContent.glossary).forEach(([term, definition]) => {
+      sections.push(`<dt>${htmlEscape(term)}</dt>`);
+      sections.push(`<dd>${htmlEscape(definition)}</dd>`);
+    });
+    sections.push('</dl>');
+  }
+
+  sections.push('</main>');
+  sections.push('</body>');
+  sections.push('</html>');
+
+  return sections.join('\n');
+}
+
+/**
+ * Convert V3 response to SSML (Speech Synthesis Markup Language)
+ */
+export function toSSMLV3(response: AccessibleResponseV3<unknown>): string {
+  const meta = response.accessibility;
+  const primaryLang = Object.keys(meta.languages)[0] || 'es';
+  const langContent = meta.languages[primaryLang];
+  const simpleContent = langContent?.byLevel.simple;
+
+  if (!simpleContent) {
+    throw new Error('No simple level content found for SSML conversion');
+  }
+
+  let ssml = `<speak version="1.1" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${primaryLang}">`;
+
+  // Main summary with slower rate for clarity
+  ssml += `<prosody rate="slow">${simpleContent.plainLanguage}</prosody>`;
+  ssml += '<break time="500ms"/>';
+
+  // Explanation
+  ssml += `<p>${simpleContent.explanation}</p>`;
+  ssml += '<break time="1s"/>';
+
+  // Steps with pauses
+  if (simpleContent.stepByStep.length > 0) {
+    ssml += '<p>Pasos a seguir:</p>';
+    simpleContent.stepByStep.forEach((step, idx) => {
+      // Remove emoji icons from TTS (they don't read well)
+      const textWithoutEmoji = step.text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '');
+      ssml += `<s>Paso ${idx + 1}: ${textWithoutEmoji}</s>`;
+      ssml += '<break time="500ms"/>';
+    });
+  }
+
+  ssml += '</speak>';
+
+  return ssml;
+}
+
+/**
+ * Optimize text for Braille V3
+ */
+export function optimizeForBrailleV3(content: ContentSectionV3, level: CognitiveLevelV3 = 'simple'): string {
+  const levelContent = content.byLevel[level];
+  if (!levelContent) return '';
+
+  let text = `${levelContent.plainLanguage}. ${levelContent.explanation}`;
+
+  if (levelContent.stepByStep.length > 0) {
+    text += ' Pasos: ';
+    levelContent.stepByStep.forEach((step, idx) => {
+      // Remove emojis for Braille
+      const textWithoutEmoji = step.text.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '');
+      text += `${idx + 1}. ${textWithoutEmoji}. `;
+    });
+  }
+
+  return optimizeForBraille(text);
+}

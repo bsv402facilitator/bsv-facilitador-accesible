@@ -758,6 +758,7 @@ export interface VisualVariantV3 {
   ariaLabels?: Record<string, string>;
   altTexts?: string[];
   colorPalette?: string[];
+  recommended?: boolean; // ✨ NUEVO: Indica si esta variante coincide con las preferencias del usuario
 }
 
 /**

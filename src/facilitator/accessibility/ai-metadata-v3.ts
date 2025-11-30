@@ -34,6 +34,15 @@ import { createStableGlossary, detectScenarios } from './glossary-base';
 import { generateCheckpoints, toBaseCheckpoints } from './checkpoint-generator';
 import { generateSteps } from './step-generator';
 import { generateVoiceCommands } from './voice-commands';
+import { addIconsToContent } from './icon-support';
+import {
+  optimizeForBrailleV3,
+  toMarkdownV3,
+  toSSMLV3,
+  toXMLV3,
+  toPlainTextV3,
+  toHTMLV3,
+} from './format-converters';
 
 // ============================================================================
 // Constants
@@ -403,6 +412,13 @@ async function generateLanguageContentWithAI(
       // Calculate reading level
       const allText = `${content.plainLanguage} ${content.explanation} ${content.stepByStep.map((s) => s.text).join(' ')}`;
       content.readingLevel = calculateReadingLevel(allText);
+
+      // ========================================================================
+      // MEJORA #9: Sistema de iconos de apoyo cognitivo
+      // ========================================================================
+      // Add icons to steps and memory aids for better visual comprehension
+      const enrichedContent = addIconsToContent(content, language);
+      byLevel[level] = enrichedContent;
     }
 
   // Build byAbstraction using the enriched levels
@@ -643,17 +659,14 @@ async function buildUniversalMetadataV3(
     byAbstraction: primaryContent.byAbstraction,
   };
 
-  // Build visual section (all variants)
-  const visual = buildVisualSection();
+  // Build visual section (all variants) - NOW PERSONALIZED
+  const visual = buildVisualSection(preferences);
 
   // Build motor section (all input methods)
   const motor = buildMotorSection();
 
   // Build audio section (all variants)
   const audio = buildAudioSection(content);
-
-  // Build formats section (all formats)
-  const formats = await buildFormatsSection(content, languageContent, _env);
 
   // Build recommendations
   const recommendations = {
@@ -665,13 +678,14 @@ async function buildUniversalMetadataV3(
     confidence: generatedBy === 'ai' ? 0.85 : 0.6,
   };
 
-  return {
+  // Build metadata first (without formats)
+  const metadataComplete: UniversalAccessibilityMetadataV3 = {
     content,
     languages: languageContent,
     visual,
     motor,
     audio,
-    formats,
+    formats: {} as FormatsSectionV3, // Placeholder, will be filled next
     recommendations,
     metadata: {
       version: 3,
@@ -682,63 +696,110 @@ async function buildUniversalMetadataV3(
       wcagLevel: 'AAA',
     },
   };
+
+  // Build formats section (all formats) - now we have complete metadata
+  const formats = await buildFormatsSection(content, languageContent, metadataComplete, _env);
+  metadataComplete.formats = formats;
+
+  return metadataComplete;
 }
 
 // ============================================================================
 // Section Builders
 // ============================================================================
 
-function buildVisualSection(): VisualSectionV3 {
+/**
+ * Build visual section with ALL variants
+ * Now supports PERSONALIZATION based on user preferences
+ */
+function buildVisualSection(preferences?: AccessibilityPreferencesV3): VisualSectionV3 {
+  // Detect user's preferred contrast mode
+  const preferredContrast = preferences?.contrastMode || 'normal';
+
+  // Detect user's preferred color blind type
+  const preferredColorBlind = preferences?.colorBlindType || 'none';
+
+  // Detect user's preferred font size
+  const preferredFontSize = preferences?.fontSize || 'medium';
+
+  // Detect user's preferred theme
+  const preferredTheme = preferences?.darkMode ? 'dark' : 'light';
+
   return {
     contrast: {
       high: {
         description: 'High contrast for low vision',
         colorPalette: ['#000000', '#FFFFFF'],
         cssHints: { 'background-color': '#000', color: '#FFF' },
+        recommended: preferredContrast === 'high',
       },
       normal: {
         description: 'Standard WCAG AA contrast',
         colorPalette: ['#333333', '#EEEEEE'],
         cssHints: { 'background-color': '#EEE', color: '#333' },
+        recommended: preferredContrast === 'normal',
       },
       low: {
         description: 'Low contrast for photophobia',
         colorPalette: ['#666666', '#CCCCCC'],
         cssHints: { 'background-color': '#CCC', color: '#666' },
+        recommended: preferredContrast === 'low',
       },
     },
     colorBlind: {
       deuteranopia: {
         description: 'Red-green colorblind (most common)',
         colorPalette: ['#0173B2', '#DE8F05', '#CC78BC'],
+        recommended: preferredColorBlind === 'deuteranopia',
       },
       protanopia: {
         description: 'Red-green colorblind (severe)',
         colorPalette: ['#0173B2', '#DE8F05', '#CC78BC'],
+        recommended: preferredColorBlind === 'protanopia',
       },
       tritanopia: {
         description: 'Blue-yellow colorblind',
         colorPalette: ['#E69F00', '#56B4E9', '#009E73'],
+        recommended: preferredColorBlind === 'tritanopia',
       },
       none: {
         description: 'Normal color vision',
         colorPalette: ['#28a745', '#dc3545', '#ffc107'],
+        recommended: preferredColorBlind === 'none',
       },
     },
     fontSize: {
-      small: { description: 'Small (14px)', cssHints: { 'font-size': '14px' } },
-      medium: { description: 'Medium (16px)', cssHints: { 'font-size': '16px' } },
-      large: { description: 'Large (20px)', cssHints: { 'font-size': '20px' } },
-      'x-large': { description: 'Extra Large (24px)', cssHints: { 'font-size': '24px' } },
+      small: {
+        description: 'Small (14px)',
+        cssHints: { 'font-size': '14px' },
+        recommended: preferredFontSize === 'small',
+      },
+      medium: {
+        description: 'Medium (16px)',
+        cssHints: { 'font-size': '16px' },
+        recommended: preferredFontSize === 'medium',
+      },
+      large: {
+        description: 'Large (20px)',
+        cssHints: { 'font-size': '20px' },
+        recommended: preferredFontSize === 'large',
+      },
+      'x-large': {
+        description: 'Extra Large (24px)',
+        cssHints: { 'font-size': '24px' },
+        recommended: preferredFontSize === 'x-large',
+      },
     },
     theme: {
       light: {
         description: 'Light theme',
         cssHints: { 'background-color': '#FFF', color: '#000' },
+        recommended: preferredTheme === 'light',
       },
       dark: {
         description: 'Dark theme',
         cssHints: { 'background-color': '#1a1a1a', color: '#e0e0e0' },
+        recommended: preferredTheme === 'dark',
       },
     },
   };
@@ -798,6 +859,7 @@ function buildAudioSection(content: ContentSectionV3): AudioSectionV3 {
 async function buildFormatsSection(
   content: ContentSectionV3,
   languages: Record<string, LanguageContentV3>,
+  metadata: UniversalAccessibilityMetadataV3,
   _env: EnvV3
 ): Promise<FormatsSectionV3> {
   const baseData = {
@@ -805,27 +867,35 @@ async function buildFormatsSection(
     languages,
   };
 
-  // TODO: Implement format converters for V3
-  // For now, provide basic formats
+  // Create a minimal AccessibleResponseV3 for format converters
+  const mockResponse = {
+    data: {},
+    accessibility: metadata,
+  } as import('../types').AccessibleResponseV3<unknown>;
+
+  // MEJORA #10: Formatos alternativos REALES usando convertidores especializados
   return {
     json: JSON.stringify(baseData, null, 2),
-    xml: '<data>XML conversion for V3 pending</data>',
-    plaintext: content.byLevel.simple.plainLanguage,
-    markdown: `# ${content.byLevel.simple.plainLanguage}\n\n${content.byLevel.simple.explanation}`,
-    html: `<div><h1>${content.byLevel.simple.plainLanguage}</h1><p>${content.byLevel.simple.explanation}</p></div>`,
-    jsonld: JSON.stringify({ '@context': 'https://schema.org', '@type': 'Thing' }),
-    braille: optimizeForBraille(content.byLevel.simple.plainLanguage),
-    ssml: `<speak>${content.byLevel.simple.plainLanguage}</speak>`,
+    xml: toXMLV3(mockResponse),
+    plaintext: toPlainTextV3(mockResponse),
+    markdown: toMarkdownV3(mockResponse),
+    html: toHTMLV3(mockResponse),
+    jsonld: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Action',
+      name: content.byLevel.simple.plainLanguage,
+      description: content.byLevel.simple.explanation,
+      accessibilityAPI: 'ARIA',
+      accessibilityFeature: ['structuralNavigation', 'readingOrder', 'alternativeText'],
+      accessibilityHazard: 'noFlashingHazard',
+      inLanguage: Object.keys(languages),
+    }),
+    braille: optimizeForBrailleV3(content, 'simple'),
+    ssml: toSSMLV3(mockResponse),
   };
 }
 
-/**
- * Basic Braille optimization
- */
-function optimizeForBraille(text: string): string {
-  // Remove emojis, simplify punctuation
-  return text.replace(/[^\w\s.,;:!?-]/g, '').trim();
-}
+// Basic Braille optimization removed - now using optimizeForBrailleV3 from format-converters
 
 // ============================================================================
 // Helpers
