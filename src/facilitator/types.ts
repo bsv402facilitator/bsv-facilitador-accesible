@@ -569,3 +569,394 @@ export interface EnvV2 extends Env {
   ADAPTIVE_COMPLEXITY_ENABLED?: string;
   READING_LEVEL_ANALYSIS?: string;
 }
+
+// ============================================================================
+// V3 Type System - Universal Accessibility (All Levels, All Languages, All Formats)
+// ============================================================================
+// V3 PRINCIPLE: Server provides EVERYTHING, client chooses what it needs.
+// - All cognitive levels (beginner to expert)
+// - All languages (minimum: es, en, + user requested)
+// - All visual variants (contrast, colorblind, fontSize, theme)
+// - All motor options (keyboard, voice, switch, eye)
+// - All audio variants (TTS optimized/non-optimized, with/without pauses)
+// - All formats (JSON, XML, plaintext, markdown, HTML, JSON-LD, Braille, SSML)
+
+/**
+ * V3 Cognitive Levels (5 levels for complete coverage)
+ */
+export type CognitiveLevelV3 = 'beginner' | 'simple' | 'medium' | 'advanced' | 'expert';
+
+/**
+ * V3 Abstraction Levels
+ */
+export type AbstractionLevelV3 = 'concrete' | 'mixed' | 'abstract';
+
+/**
+ * V3 Output Formats (expanded)
+ */
+export type OutputFormatV3 = 'json' | 'xml' | 'plaintext' | 'markdown' | 'html' | 'jsonld' | 'braille' | 'ssml';
+
+/**
+ * V3 Contrast Modes
+ */
+export type ContrastModeV3 = 'high' | 'normal' | 'low';
+
+/**
+ * V3 Color Blind Types
+ */
+export type ColorBlindTypeV3 = 'deuteranopia' | 'protanopia' | 'tritanopia' | 'none';
+
+/**
+ * V3 Font Sizes
+ */
+export type FontSizeV3 = 'small' | 'medium' | 'large' | 'x-large';
+
+/**
+ * V3 Theme Modes
+ */
+export type ThemeModeV3 = 'light' | 'dark';
+
+/**
+ * V3 Motor Input Methods
+ */
+export type MotorInputV3 = 'keyboard' | 'voice' | 'switch' | 'eye';
+
+/**
+ * V3 Audio Variant Types
+ */
+export type AudioVariantV3 = 'ttsOptimized' | 'ttsNonOptimized' | 'withPauses' | 'withoutPauses';
+
+/**
+ * V3 Enhanced Step with metadata
+ */
+export interface AccessibleStepV3 {
+  text: string;
+  icon?: string;
+  context?: string;
+  estimatedTime?: string;
+}
+
+/**
+ * V3 Resource Link
+ */
+export interface ResourceLinkV3 {
+  title: string;
+  url: string;
+  type: 'documentation' | 'tutorial' | 'faq' | 'support';
+}
+
+/**
+ * V3 Extended Hints
+ */
+export interface ExtendedHintsV3 {
+  ifError?: string;
+  commonMistakes?: string[];
+  nextSteps?: string;
+  troubleshooting?: string;
+  relatedResources?: ResourceLinkV3[];
+  safeguards?: string[];
+}
+
+/**
+ * V3 Concrete Example
+ */
+export interface ConcreteExampleV3 {
+  scenario: string;
+  input: string;
+  output: string;
+  explanation: string;
+}
+
+/**
+ * V3 Reading Level Metrics
+ */
+export interface ReadingLevelV3 {
+  fleschKincaidGrade: number;
+  fleschReadingEase: number;
+  estimatedReadingTime: string;
+}
+
+/**
+ * V3 Comprehension Checkpoint
+ */
+export interface ComprehensionCheckpointV3 {
+  question: string;
+  expectedAnswer: string;
+  hint?: string;
+}
+
+/**
+ * V3 Cognitive Content - Complete content for ONE cognitive level
+ */
+export interface CognitiveContentV3 {
+  plainLanguage: string;
+  explanation: string;
+  detailedExplanation?: string;
+  stepByStep: AccessibleStepV3[];
+  hints: ExtendedHintsV3;
+  glossary?: Record<string, string>;
+  examples?: ConcreteExampleV3[];
+  checkpoints?: ComprehensionCheckpointV3[];
+  readingLevel?: ReadingLevelV3;
+  memoryAids?: string[];
+}
+
+/**
+ * V3 Abstraction Content - Content for ONE abstraction level
+ */
+export interface AbstractionContentV3 {
+  description: string;
+  content: CognitiveContentV3;
+}
+
+/**
+ * V3 Language Content - Complete content in ONE language
+ */
+export interface LanguageContentV3 {
+  code: string; // 'es', 'en', 'pt', 'fr', 'de', etc.
+  direction: 'ltr' | 'rtl';
+  locale: string; // 'es-ES', 'en-US', 'pt-BR', etc.
+  culturalContext?: string;
+  // Content by cognitive level
+  byLevel: Record<CognitiveLevelV3, CognitiveContentV3>;
+  // Content by abstraction level
+  byAbstraction: Record<AbstractionLevelV3, AbstractionContentV3>;
+}
+
+/**
+ * V3 Visual Variant - Visual accessibility variant
+ */
+export interface VisualVariantV3 {
+  description: string;
+  cssHints?: Record<string, string>;
+  ariaLabels?: Record<string, string>;
+  altTexts?: string[];
+  colorPalette?: string[];
+}
+
+/**
+ * V3 Motor Guidance - Guidance for ONE motor input method
+ */
+export interface MotorGuidanceV3 {
+  instructions: string[];
+  shortcuts?: Record<string, string>;
+  timing?: {
+    estimatedTime: string;
+    adjustable: boolean;
+  };
+  focusOrder?: number[];
+}
+
+/**
+ * V3 Audio Content - Audio variant content
+ */
+export interface AudioContentV3 {
+  text: string;
+  ssml?: string;
+  pauses?: number[]; // Pause positions in ms
+  pronunciation?: Record<string, string>;
+  rate?: 'slow' | 'normal' | 'fast';
+}
+
+/**
+ * V3 Content Section - ALL cognitive and abstraction levels
+ */
+export interface ContentSectionV3 {
+  byLevel: Record<CognitiveLevelV3, CognitiveContentV3>;
+  byAbstraction: Record<AbstractionLevelV3, AbstractionContentV3>;
+}
+
+/**
+ * V3 Visual Section - ALL visual variants
+ */
+export interface VisualSectionV3 {
+  contrast: Record<ContrastModeV3, VisualVariantV3>;
+  colorBlind: Record<ColorBlindTypeV3, VisualVariantV3>;
+  fontSize: Record<FontSizeV3, VisualVariantV3>;
+  theme: Record<ThemeModeV3, VisualVariantV3>;
+}
+
+/**
+ * V3 Motor Section - ALL motor input methods
+ */
+export interface MotorSectionV3 {
+  keyboard: MotorGuidanceV3;
+  voice: MotorGuidanceV3;
+  switch: MotorGuidanceV3;
+  eye: MotorGuidanceV3;
+}
+
+/**
+ * V3 Audio Section - ALL audio variants
+ */
+export interface AudioSectionV3 {
+  ttsOptimized: AudioContentV3;
+  ttsNonOptimized: AudioContentV3;
+  withPauses: AudioContentV3;
+  withoutPauses: AudioContentV3;
+}
+
+/**
+ * V3 Formats Section - Content in ALL formats
+ */
+export interface FormatsSectionV3 {
+  json: string;
+  xml: string;
+  plaintext: string;
+  markdown: string;
+  html: string;
+  jsonld: string;
+  braille: string;
+  ssml: string;
+}
+
+/**
+ * V3 Recommendations - Server suggestions based on user preferences
+ */
+export interface RecommendationsV3 {
+  cognitiveLevel: CognitiveLevelV3;
+  language: string;
+  visualMode: string; // e.g., "high-contrast-dark"
+  motorMode: MotorInputV3;
+  format: OutputFormatV3;
+  confidence: number; // 0-1, how confident the server is in these recommendations
+}
+
+/**
+ * V3 Metadata Section
+ */
+export interface MetadataSectionV3 {
+  version: 3;
+  generatedBy: 'ai' | 'template' | 'hybrid';
+  generatedAt: string;
+  cacheHit: boolean;
+  userPreferences?: AccessibilityPreferencesV3;
+  wcagLevel: 'AAA';
+}
+
+/**
+ * V3 Universal Accessibility Metadata - The complete V3 structure
+ * Contains ALL levels, ALL languages, ALL variants
+ */
+export interface UniversalAccessibilityMetadataV3 {
+  // ALL cognitive levels and abstraction levels
+  content: ContentSectionV3;
+
+  // ALL languages (minimum: es, en, + user requested)
+  languages: Record<string, LanguageContentV3>; // 'es', 'en', 'pt', etc.
+
+  // ALL visual variants
+  visual: VisualSectionV3;
+
+  // ALL motor input methods
+  motor: MotorSectionV3;
+
+  // ALL audio variants
+  audio: AudioSectionV3;
+
+  // Content in ALL formats
+  formats: FormatsSectionV3;
+
+  // Server recommendations (client can ignore)
+  recommendations: RecommendationsV3;
+
+  // Metadata
+  metadata: MetadataSectionV3;
+}
+
+/**
+ * V3 Accessibility Preferences Schema
+ * User specifies preferences, but server provides EVERYTHING
+ */
+export const AccessibilityPreferencesSchemaV3 = z.object({
+  // === Linguistic ===
+  languages: z.array(z.string().length(2).toLowerCase()).min(1).default(['es', 'en']),
+  primaryLanguage: z.string().length(2).toLowerCase().default('es'),
+  dialect: z.string().optional(),
+
+  // === Cognitive ===
+  cognitiveLevel: z.enum(['beginner', 'simple', 'medium', 'advanced', 'expert']).optional(),
+  abstractionLevel: z.enum(['concrete', 'mixed', 'abstract']).optional(),
+  includeExamples: z.boolean().default(true),
+  includeGlossary: z.boolean().default(true),
+  includeCheckpoints: z.boolean().default(false),
+
+  // === Visual ===
+  contrastMode: z.enum(['high', 'normal', 'low']).optional(),
+  colorBlindType: z.enum(['deuteranopia', 'protanopia', 'tritanopia', 'none']).optional(),
+  fontSize: z.enum(['small', 'medium', 'large', 'x-large']).optional(),
+  darkMode: z.boolean().optional(),
+  screenReaderOptimized: z.boolean().default(true),
+
+  // === Motor ===
+  motorInput: z.enum(['keyboard', 'voice', 'switch', 'eye']).optional(),
+  includeKeyboardHints: z.boolean().default(true),
+  includeVoiceHints: z.boolean().default(false),
+
+  // === Format ===
+  preferredFormats: z.array(z.enum(['json', 'xml', 'plaintext', 'markdown', 'html', 'jsonld', 'braille', 'ssml'])).default(['json']),
+  brailleOptimized: z.boolean().default(false),
+  includeSemanticMarkup: z.boolean().default(false),
+
+  // === Audio ===
+  audioFriendly: z.boolean().default(true),
+  ttsOptimized: z.boolean().default(true),
+
+  // === Personalization ===
+  userId: z.string().optional(),
+  adaptiveComplexity: z.boolean().default(false),
+
+  // === WCAG ===
+  wcagLevel: z.enum(['A', 'AA', 'AAA']).default('AAA'),
+});
+
+export type AccessibilityPreferencesV3 = z.infer<typeof AccessibilityPreferencesSchemaV3>;
+
+/**
+ * V3 Accessible Response Wrapper
+ */
+export interface AccessibleResponseV3<T> {
+  data: T;
+  accessibility: UniversalAccessibilityMetadataV3;
+}
+
+/**
+ * V3 Verify Request
+ */
+export const VerifyRequestSchemaV3 = z.object({
+  payload: PaymentPayloadSchema,
+  paymentRequirements: PaymentRequirementsSchema,
+  accessibilityPreferences: AccessibilityPreferencesSchemaV3.optional(),
+});
+
+export type VerifyRequestV3 = z.infer<typeof VerifyRequestSchemaV3>;
+
+/**
+ * V3 Settle Request
+ */
+export const SettleRequestSchemaV3 = z.object({
+  payload: PaymentPayloadSchema,
+  paymentRequirements: PaymentRequirementsSchema,
+  accessibilityPreferences: AccessibilityPreferencesSchemaV3.optional(),
+});
+
+export type SettleRequestV3 = z.infer<typeof SettleRequestSchemaV3>;
+
+/**
+ * V3 Environment Bindings (extends V2)
+ */
+export interface EnvV3 extends EnvV2 {
+  // V3 Feature Flags
+  ACCESSIBILITY_V3_ENABLED?: string;
+  V3_ROLLOUT_PERCENTAGE?: string;
+
+  // V3 Format Conversion
+  FORMAT_CONVERTERS_ENABLED?: string;
+
+  // V3 Multi-Language
+  MAX_LANGUAGES?: string; // Maximum number of languages to return (default: all requested)
+
+  // V3 Performance
+  LAZY_LOADING_ENABLED?: string; // Allow clients to request specific levels/languages only
+  STREAMING_ENABLED?: string; // Enable streaming for large responses
+}
