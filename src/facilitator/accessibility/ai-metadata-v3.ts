@@ -902,7 +902,29 @@ async function buildFormatsSection(
 // ============================================================================
 
 function shouldUseAI(env: EnvV3): boolean {
-  return env.ACCESSIBILITY_V3_ENABLED === 'true' && !!env.OPENAI_API_KEY;
+  // 1. Check if V3 and AI are both enabled
+  const v3Enabled = env.ACCESSIBILITY_V3_ENABLED === 'true';
+  const aiEnabled = env.AI_ENABLED === 'true';
+  const hasApiKey = !!env.OPENAI_API_KEY;
+
+  if (!v3Enabled || !aiEnabled || !hasApiKey) {
+    return false;
+  }
+
+  // 2. Check rollout percentage (0-100)
+  const rolloutPercentage = parseInt(env.AI_ROLLOUT_PERCENTAGE || '100', 10);
+
+  if (rolloutPercentage <= 0) {
+    return false;
+  }
+
+  if (rolloutPercentage >= 100) {
+    return true;
+  }
+
+  // 3. Probabilistic rollout for partial deployment
+  const random = Math.random() * 100;
+  return random < rolloutPercentage;
 }
 
 function selectModel(env: EnvV3): string {
