@@ -214,6 +214,53 @@ app.post(
       }
     }
 
+    // Check if V3 is enabled
+    const v3Enabled = c.env.ACCESSIBILITY_V3_ENABLED === 'true';
+
+    if (v3Enabled) {
+      // Use V3: Convert V2 preferences to V3 format
+      const preferencesV3: AccessibilityPreferencesV3 = {
+        primaryLanguage: preferences.language,
+        languages: [preferences.language],
+        dialect: preferences.dialect,
+        cognitiveLevel: preferences.cognitiveLevel,
+        abstractionLevel: preferences.abstractionLevel,
+        includeExamples: preferences.includeExamples,
+        includeGlossary: preferences.includeGlossary,
+        includeCheckpoints: preferences.includeCheckpoints,
+        contrastMode: preferences.contrastMode,
+        colorBlindType: preferences.colorBlindType,
+        fontSize: preferences.fontSize,
+        darkMode: preferences.darkMode,
+        screenReaderOptimized: preferences.screenReaderOptimized,
+        includeKeyboardHints: preferences.includeKeyboardHints,
+        includeVoiceHints: preferences.includeVoiceHints,
+        audioFriendly: preferences.audioFriendly,
+        ttsOptimized: preferences.audioFriendly,
+        preferredFormats: [preferences.outputFormat],
+        brailleOptimized: preferences.brailleOptimized,
+        includeSemanticMarkup: preferences.includeSemanticMarkup,
+        userId: preferences.userId,
+        adaptiveComplexity: preferences.adaptiveComplexity,
+        wcagLevel: preferences.wcagLevel,
+      };
+
+      const metadataV3 = await createMetadataWithAIV3(
+        messageType,
+        context,
+        preferencesV3,
+        c.env
+      );
+
+      const responseV3: AccessibleResponseV3<VerifyResponse> = createAccessibleResponseV3(
+        verifyResult,
+        metadataV3
+      );
+
+      return c.json(responseV3);
+    }
+
+    // Fallback to V2 if V3 is disabled
     const metadata = await createMetadataWithAIV2(
       messageType,
       context,
@@ -488,6 +535,53 @@ app.post(
       }
     }
 
+    // Check if V3 is enabled
+    const v3Enabled = c.env.ACCESSIBILITY_V3_ENABLED === 'true';
+
+    if (v3Enabled) {
+      // Use V3: Convert V2 preferences to V3 format
+      const preferencesV3: AccessibilityPreferencesV3 = {
+        primaryLanguage: preferences.language,
+        languages: [preferences.language],
+        dialect: preferences.dialect,
+        cognitiveLevel: preferences.cognitiveLevel,
+        abstractionLevel: preferences.abstractionLevel,
+        includeExamples: preferences.includeExamples,
+        includeGlossary: preferences.includeGlossary,
+        includeCheckpoints: preferences.includeCheckpoints,
+        contrastMode: preferences.contrastMode,
+        colorBlindType: preferences.colorBlindType,
+        fontSize: preferences.fontSize,
+        darkMode: preferences.darkMode,
+        screenReaderOptimized: preferences.screenReaderOptimized,
+        includeKeyboardHints: preferences.includeKeyboardHints,
+        includeVoiceHints: preferences.includeVoiceHints,
+        audioFriendly: preferences.audioFriendly,
+        ttsOptimized: preferences.audioFriendly,
+        preferredFormats: [preferences.outputFormat],
+        brailleOptimized: preferences.brailleOptimized,
+        includeSemanticMarkup: preferences.includeSemanticMarkup,
+        userId: preferences.userId,
+        adaptiveComplexity: preferences.adaptiveComplexity,
+        wcagLevel: preferences.wcagLevel,
+      };
+
+      const metadataV3 = await createMetadataWithAIV3(
+        messageType,
+        context,
+        preferencesV3,
+        c.env
+      );
+
+      const responseV3: AccessibleResponseV3<SettleResponse> = createAccessibleResponseV3(
+        settleResult,
+        metadataV3
+      );
+
+      return c.json(responseV3);
+    }
+
+    // Fallback to V2 if V3 is disabled
     const metadata = await createMetadataWithAIV2(
       messageType,
       context,

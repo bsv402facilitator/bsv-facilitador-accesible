@@ -354,13 +354,24 @@ async function generateLanguageContentWithAI(
       content.memoryAids = content.memoryAids || [];
 
       // ========================================================================
-      // MEJORA #1: stepByStep con timestamps, iconos y estados
+      // MEJORA #1: stepByStep con timestamps, iconos y estados (MODO HÍBRIDO)
       // ========================================================================
-      if (content.stepByStep.length === 0) {
-        const scenarios = detectScenarios(messageType);
-        const primaryScenario = scenarios[0] || 'generic';
+      // PRIORIDAD: SIEMPRE usar template para stepByStep (tiene timestamps + iconos)
+      // AI puede generar buenos pasos, pero sin timestamps ni estructura completa
+      const scenarios = detectScenarios(messageType);
+      const primaryScenario = scenarios[0] || 'generic';
+
+      // Verificar si los steps existentes tienen timestamps
+      const hasTimestamps = content.stepByStep.length > 0 && content.stepByStep[0]?.timestamp;
+
+      // Si no hay steps O no tienen timestamps, usar template (PRIORIDAD ALTA)
+      if (content.stepByStep.length === 0 || !hasTimestamps) {
         content.stepByStep = generateSteps(primaryScenario, level, language, true);
-        logger.info('Generated stepByStep with step-generator', { level, steps: content.stepByStep.length });
+        logger.info('Generated stepByStep with step-generator (template)', {
+          level,
+          steps: content.stepByStep.length,
+          reason: content.stepByStep.length === 0 ? 'empty' : 'missing-timestamps'
+        });
       }
 
       // ========================================================================
@@ -407,6 +418,17 @@ async function generateLanguageContentWithAI(
             'BSV = Bitcoin blockchain original'
           ];
         }
+      }
+
+      // ========================================================================
+      // MEJORA #4: voiceCommandHints para accesibilidad motora
+      // ========================================================================
+      // Generate voice commands if missing (beginner and simple levels benefit most)
+      if (!content.voiceCommandHints && (level === 'beginner' || level === 'simple')) {
+        const scenarios = detectScenarios(messageType);
+        const primaryScenario = scenarios[0] || 'generic';
+        content.voiceCommandHints = generateVoiceCommands(primaryScenario, level);
+        logger.info('Generated voiceCommandHints', { level, commands: content.voiceCommandHints.commands.length });
       }
 
       // Calculate reading level
