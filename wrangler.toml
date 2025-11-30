@@ -34,12 +34,12 @@ CACHE_TTL_SPECIFIC = "86400"   # 24 hours in seconds
 OPENAI_MODEL_SIMPLE = "gpt-3.5-turbo"
 OPENAI_MODEL_EXPERT = "gpt-4o"
 USER_PREFERENCES_TTL = "2592000"   # 30 days in seconds
-# V2 Feature Flags (start disabled, enable in later phases)
+# V2 Feature Flags
 WCAG_COMPLIANCE_ENABLED = "true"
-MULTILANG_ENABLED = "false"
-FORMAT_CONVERSION_ENABLED = "false"
-ADAPTIVE_COMPLEXITY_ENABLED = "false"
-READING_LEVEL_ANALYSIS = "false"
+MULTILANG_ENABLED = "true"          # AI-powered unlimited language support
+FORMAT_CONVERSION_ENABLED = "true"   # XML, HTML, Markdown, Plain Text, JSON-LD
+ADAPTIVE_COMPLEXITY_ENABLED = "false" # Experimental - postponed to V2.1
+READING_LEVEL_ANALYSIS = "true"      # Flesch-Kincaid + WCAG compliance
 
 [[env.development.kv_namespaces]]
 binding = "METADATA_CACHE"
@@ -67,12 +67,12 @@ CACHE_TTL_SPECIFIC = "86400"   # 24 hours in seconds
 OPENAI_MODEL_SIMPLE = "gpt-3.5-turbo"
 OPENAI_MODEL_EXPERT = "gpt-4o"
 USER_PREFERENCES_TTL = "2592000"   # 30 days in seconds
-# V2 Feature Flags (start disabled, enable in later phases)
+# V2 Feature Flags
 WCAG_COMPLIANCE_ENABLED = "true"
-MULTILANG_ENABLED = "false"
-FORMAT_CONVERSION_ENABLED = "false"
-ADAPTIVE_COMPLEXITY_ENABLED = "false"
-READING_LEVEL_ANALYSIS = "false"
+MULTILANG_ENABLED = "true"          # AI-powered unlimited language support
+FORMAT_CONVERSION_ENABLED = "true"   # XML, HTML, Markdown, Plain Text, JSON-LD
+ADAPTIVE_COMPLEXITY_ENABLED = "false" # Experimental - postponed to V2.1
+READING_LEVEL_ANALYSIS = "true"      # Flesch-Kincaid + WCAG compliance
 
 [[env.production.kv_namespaces]]
 binding = "METADATA_CACHE"
