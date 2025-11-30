@@ -628,12 +628,16 @@ export type AudioVariantV3 = 'ttsOptimized' | 'ttsNonOptimized' | 'withPauses' |
 
 /**
  * V3 Enhanced Step with metadata
+ * Mejora #1: stepByStep con timestamps, iconos y estados
  */
 export interface AccessibleStepV3 {
-  text: string;
-  icon?: string;
-  context?: string;
-  estimatedTime?: string;
+  step?: number; // Número de paso (1, 2, 3...)
+  text: string; // Descripción del paso
+  icon?: string; // Emoji o icono visual (✓, 🔐, 📡, ⏳)
+  context?: string; // Por qué es importante este paso
+  estimatedTime?: string; // Tiempo estimado ("~10 minutos")
+  timestamp?: string; // ISO 8601 timestamp cuando ocurrió
+  status?: 'pending' | 'in_progress' | 'completed' | 'failed'; // Estado del paso
 }
 
 /**
@@ -659,12 +663,15 @@ export interface ExtendedHintsV3 {
 
 /**
  * V3 Concrete Example
+ * MEJORA #7: Soporta datos reales del pago actual
  */
 export interface ConcreteExampleV3 {
   scenario: string;
-  input: string;
+  input: string | Record<string, string>; // string simple o datos estructurados
   output: string;
   explanation: string;
+  visualization?: string; // Link para verificar (ej: WoC explorer)
+  relatable?: string; // Analogía del mundo real
 }
 
 /**
@@ -678,11 +685,16 @@ export interface ReadingLevelV3 {
 
 /**
  * V3 Comprehension Checkpoint
+ * Mejora #2: Checkpoints contextuales de comprensión
  */
 export interface ComprehensionCheckpointV3 {
-  question: string;
-  expectedAnswer: string;
-  hint?: string;
+  question: string; // Pregunta para validar comprensión
+  expectedAnswer: string; // Respuesta esperada
+  hint?: string; // Pista para ayudar al usuario
+  glossaryRef?: string; // Referencia a término del glosario
+  actionLink?: string; // Link para verificar (ej: WoC explorer)
+  importance?: 'low' | 'medium' | 'high'; // Importancia del checkpoint
+  safeguard?: string; // Advertencia de seguridad
 }
 
 /**

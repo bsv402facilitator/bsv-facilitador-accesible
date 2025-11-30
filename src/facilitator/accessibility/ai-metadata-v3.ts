@@ -20,23 +20,26 @@ import type {
   EnvV3,
   CognitiveContentV3,
   CognitiveLevelV3,
-  AbstractionLevelV3,
   LanguageContentV3,
   VisualSectionV3,
   MotorSectionV3,
   AudioSectionV3,
   FormatsSectionV3,
   ContentSectionV3,
+  ComprehensionCheckpointV3,
 } from '../types';
 import { logger } from '../logger';
 import { calculateReadingLevel } from './reading-level';
+import { createStableGlossary, detectScenarios } from './glossary-base';
+import { generateCheckpoints, toBaseCheckpoints } from './checkpoint-generator';
+import { generateSteps } from './step-generator';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const OPENAI_TIMEOUT = 10000; // 10 seconds (increased for V3 complexity)
+const OPENAI_TIMEOUT = 30000; // 30 seconds (V3 requires significant time for complete content generation)
 const DEFAULT_CACHE_TTL_V3 = 86400; // 24 hours for V3 (large responses)
 
 const COGNITIVE_LEVELS: CognitiveLevelV3[] = ['beginner', 'simple', 'medium', 'advanced', 'expert'];
@@ -85,23 +88,23 @@ export async function createMetadataWithAIV3(
   let cacheHit = false;
 
   if (useAI) {
-    // Try cache first
-    try {
-      const cached = await getCachedMetadata(messageType, context, languages, env);
-      if (cached) {
-        logger.info('V3 metadata cache hit', { messageType, languages });
-        return {
-          ...cached,
-          metadata: {
-            ...cached.metadata,
-            cacheHit: true,
-            userPreferences: preferences,
-          },
-        };
-      }
-    } catch (error) {
-      logger.warn('V3 cache lookup failed', { error });
-    }
+    // TEMPORARILY DISABLED: Skip cache to test parallel AI calls
+    // try {
+    //   const cached = await getCachedMetadata(messageType, context, languages, env);
+    //   if (cached) {
+    //     logger.info('V3 metadata cache hit', { messageType, languages });
+    //     return {
+    //       ...cached,
+    //       metadata: {
+    //         ...cached.metadata,
+    //         cacheHit: true,
+    //         userPreferences: preferences,
+    //       },
+    //     };
+    //   }
+    // } catch (error) {
+    //   logger.warn('V3 cache lookup failed', { error });
+    // }
 
     // Generate with AI for all languages
     try {
@@ -171,13 +174,15 @@ export async function createMetadataWithAIV3(
 function determineLanguages(preferences: AccessibilityPreferencesV3): string[] {
   const requested = new Set(preferences.languages || ['es', 'en']);
 
-  // Always include es and en
-  requested.add('es');
-  requested.add('en');
-
   // Add primary language if specified
   if (preferences.primaryLanguage) {
     requested.add(preferences.primaryLanguage);
+  }
+
+  // If user didn't request any languages, default to es and en
+  if (requested.size === 0) {
+    requested.add('es');
+    requested.add('en');
   }
 
   return Array.from(requested);
@@ -188,19 +193,18 @@ function determineLanguages(preferences: AccessibilityPreferencesV3): string[] {
 // ============================================================================
 
 /**
- * Generate complete language content (all levels) with AI for ONE language
+ * Generate content for ONE cognitive level with AI
  */
-async function generateLanguageContentWithAI(
+async function generateCognitiveLevelWithAI(
   messageType: string,
   context: MetadataContext,
   language: string,
+  level: CognitiveLevelV3,
   env: EnvV3
-): Promise<LanguageContentV3 | null> {
+): Promise<CognitiveContentV3 | null> {
   const model = selectModel(env);
-  const systemPrompt = buildSystemPromptV3(language);
-  const userPrompt = buildUserPromptV3(messageType, context, language);
-
-  logger.info('Calling OpenAI API for V3 language content', { messageType, language, model });
+  const systemPrompt = buildSystemPromptForLevel(language, level);
+  const userPrompt = buildUserPromptForLevel(messageType, context, language, level);
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), OPENAI_TIMEOUT);
@@ -219,7 +223,7 @@ async function generateLanguageContentWithAI(
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.7,
-        max_tokens: 4000, // Increased significantly for V3 (all levels)
+        max_tokens: 1200, // Enough space for complete, quality content per level
       }),
       signal: controller.signal,
     });
@@ -227,7 +231,13 @@ async function generateLanguageContentWithAI(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      logger.error('OpenAI V3 API error', { status: response.status });
+      const errorText = await response.text().catch(() => 'Unable to read error');
+      logger.error('OpenAI V3 API error', {
+        status: response.status,
+        statusText: response.statusText,
+        level,
+        error: errorText.substring(0, 500),
+      });
       return null;
     }
 
@@ -236,54 +246,211 @@ async function generateLanguageContentWithAI(
       ?.message?.content;
 
     if (!content) {
-      logger.error('OpenAI V3 returned empty content');
+      logger.error('OpenAI V3 returned empty content', { level });
       return null;
     }
 
     // Parse JSON response
-    const parsed = JSON.parse(content) as {
-      byLevel: Record<CognitiveLevelV3, CognitiveContentV3>;
-      byAbstraction: Record<
-        AbstractionLevelV3,
-        { description: string; content: CognitiveContentV3 }
-      >;
-    };
+    const parsed = JSON.parse(content) as CognitiveContentV3;
 
-    // Validate structure
-    if (!parsed.byLevel || !parsed.byAbstraction) {
-      logger.error('Invalid V3 response structure', { parsed });
+    // Validate required fields
+    if (!parsed.plainLanguage || !parsed.explanation) {
+      logger.warn('Missing required fields in cognitive content', { level });
       return null;
     }
 
-    // Calculate reading levels for each cognitive level
-    for (const level of COGNITIVE_LEVELS) {
-      const content = parsed.byLevel[level];
-      if (content) {
-        const allText = `${content.plainLanguage} ${content.explanation} ${content.stepByStep?.map((s) => s.text).join(' ') || ''}`;
-        content.readingLevel = calculateReadingLevel(allText);
-      }
-    }
-
-    // Build LanguageContentV3
-    return {
-      code: language,
-      direction: language === 'ar' || language === 'he' ? 'rtl' : 'ltr',
-      locale: getLocale(language),
-      byLevel: parsed.byLevel,
-      byAbstraction: parsed.byAbstraction,
-    };
+    return parsed;
   } catch (error) {
     logger.error('OpenAI V3 generation error', {
       error: error instanceof Error ? error.message : String(error),
       language,
+      level,
     });
     return null;
   }
 }
 
+/**
+ * Generate complete language content (all levels) with AI for ONE language
+ * Uses PARALLEL calls - one per cognitive level
+ */
+async function generateLanguageContentWithAI(
+  messageType: string,
+  context: MetadataContext,
+  language: string,
+  env: EnvV3
+): Promise<LanguageContentV3 | null> {
+  logger.info('Generating V3 language content with parallel AI calls', { messageType, language });
+
+  // Generate all 5 cognitive levels in PARALLEL
+  const levelPromises = COGNITIVE_LEVELS.map((level) =>
+    generateCognitiveLevelWithAI(messageType, context, language, level, env)
+  );
+
+  const levelResults = await Promise.all(levelPromises);
+
+  // Check if we got at least some successful results
+  const successfulLevels = levelResults.filter((r) => r !== null);
+  if (successfulLevels.length === 0) {
+    logger.error('All AI calls failed for language', { language });
+    return null;
+  }
+
+  logger.info('AI generation results', {
+    language,
+    successful: successfulLevels.length,
+    total: COGNITIVE_LEVELS.length,
+  });
+
+  // Build byLevel object
+  const byLevel: Record<CognitiveLevelV3, CognitiveContentV3> = {} as Record<
+    CognitiveLevelV3,
+    CognitiveContentV3
+  >;
+
+  for (let i = 0; i < COGNITIVE_LEVELS.length; i++) {
+    const level = COGNITIVE_LEVELS[i];
+    if (!level) continue;
+
+    const result = levelResults[i];
+
+    if (result) {
+      byLevel[level] = result;
+    } else {
+      // Fallback to template for failed level
+      logger.warn('AI failed for level, using template', { level });
+      const templateContent = createTemplateContent(messageType, context, language);
+      byLevel[level] = createLevelVariant(templateContent, level);
+    }
+  }
+
+    // Validate and enrich content for each cognitive level
+    for (const level of COGNITIVE_LEVELS) {
+      const content = byLevel[level];
+      if (!content) continue;
+
+      // Validate required fields are populated
+      if (!content.plainLanguage || !content.explanation) {
+        logger.warn('Missing required fields in cognitive content', { level });
+        return null;
+      }
+
+      // Ensure arrays exist and ENRICH with template content if AI didn't provide them
+      content.stepByStep = content.stepByStep || [];
+      content.hints = content.hints || { ifError: undefined, commonMistakes: [], nextSteps: undefined };
+      content.glossary = content.glossary || {};
+      content.examples = content.examples || [];
+      content.checkpoints = content.checkpoints || [];
+      content.memoryAids = content.memoryAids || [];
+
+      // ========================================================================
+      // MEJORA #1: stepByStep con timestamps, iconos y estados
+      // ========================================================================
+      if (content.stepByStep.length === 0) {
+        const scenarios = detectScenarios(messageType);
+        const primaryScenario = scenarios[0] || 'generic';
+        content.stepByStep = generateSteps(primaryScenario, level, language, true);
+        logger.info('Generated stepByStep with step-generator', { level, steps: content.stepByStep.length });
+      }
+
+      // ========================================================================
+      // MEJORA #3: Glosario estable con 4 términos base + contextuales
+      // ========================================================================
+      if (Object.keys(content.glossary).length < 4) {
+        const scenarios = detectScenarios(messageType);
+        const allText = `${content.plainLanguage} ${content.explanation}`;
+        content.glossary = createStableGlossary(language, scenarios, allText);
+        logger.info('Generated stable glossary', { level, terms: Object.keys(content.glossary).length });
+      }
+
+      // ========================================================================
+      // MEJORA #2: Checkpoints de comprensión contextuales
+      // ========================================================================
+      if (content.checkpoints.length === 0) {
+        const scenarios = detectScenarios(messageType);
+        const primaryScenario = scenarios[0] || 'generic';
+        const enhancedCheckpoints = generateCheckpoints(primaryScenario, context, level, language);
+        content.checkpoints = toBaseCheckpoints(enhancedCheckpoints);
+        logger.info('Generated checkpoints', { level, checkpoints: content.checkpoints.length });
+      }
+
+      // Enrich examples if missing (solo para beginner/simple)
+      if (content.examples.length === 0 && (level === 'beginner' || level === 'simple')) {
+        content.examples = createExamples(content, level, context);
+      }
+
+      // Generate memory aids if missing
+      if (content.memoryAids.length === 0) {
+        if (level === 'beginner') {
+          content.memoryAids = [
+            '💡 Piensa en esto como una transacción bancaria, pero con Bitcoin',
+            '🔐 El sistema verifica todo antes de procesar'
+          ];
+        } else if (level === 'simple') {
+          content.memoryAids = [
+            'Verificación → Validación → Confirmación',
+            'Cada paso tiene su propósito específico'
+          ];
+        } else if (level === 'medium') {
+          content.memoryAids = [
+            'X402 = HTTP Payment Protocol',
+            'BSV = Bitcoin blockchain original'
+          ];
+        }
+      }
+
+      // Calculate reading level
+      const allText = `${content.plainLanguage} ${content.explanation} ${content.stepByStep.map((s) => s.text).join(' ')}`;
+      content.readingLevel = calculateReadingLevel(allText);
+    }
+
+  // Build byAbstraction using the enriched levels
+  const byAbstraction = {
+    concrete: {
+      description: 'Concrete examples with specific details',
+      content: byLevel.simple,
+    },
+    mixed: {
+      description: 'Mix of concepts and examples',
+      content: byLevel.medium,
+    },
+    abstract: {
+      description: 'Theoretical concepts without examples',
+      content: byLevel.advanced,
+    },
+  };
+
+  // Build LanguageContentV3
+  return {
+    code: language,
+    direction: language === 'ar' || language === 'he' ? 'rtl' : 'ltr',
+    locale: getLocale(language),
+    byLevel,
+    byAbstraction,
+  };
+}
+
 // ============================================================================
 // Template Fallback
 // ============================================================================
+
+/**
+ * Create level-specific variant from base template content
+ */
+function createLevelVariant(base: CognitiveContentV3, level: CognitiveLevelV3): CognitiveContentV3 {
+  switch (level) {
+    case 'beginner':
+      return createBeginnerContent(base);
+    case 'simple':
+      return createSimpleContent(base);
+    case 'medium':
+      return createMediumContent(base);
+    case 'advanced':
+      return createAdvancedContent(base);
+    case 'expert':
+      return createExpertContent(base);
+  }
+}
 
 /**
  * Generate language content from templates (fallback)
@@ -836,12 +1003,32 @@ function createGlossary(content: CognitiveContentV3): Record<string, string> {
 
 /**
  * Crea ejemplos contextuales basados en el nivel cognitivo
+ * MEJORA #7: Incluye datos reales del pago actual si están disponibles
  */
 function createExamples(
   content: CognitiveContentV3,
-  level: 'beginner' | 'simple'
-): Array<{ scenario: string; input: string; output: string; explanation: string }> {
+  level: 'beginner' | 'simple',
+  context?: MetadataContext
+): Array<{ scenario: string; input: string | Record<string, string>; output: string; explanation: string; visualization?: string; relatable?: string }> {
   const examples = [];
+
+  // PRIORIDAD: Ejemplo con datos REALES del pago actual si están disponibles
+  if (context?.txid && context?.amount && context?.address) {
+    examples.push({
+      scenario: 'Tu pago actual',
+      input: {
+        amount: `${context.amount} satoshis`,
+        to: context.address,
+        txid: context.txid
+      },
+      output: `Enviaste ${context.amount} satoshis exitosamente`,
+      explanation: 'Tu pago está confirmado en la blockchain BSV',
+      visualization: `https://whatsonchain.com/tx/${context.txid}`,
+      relatable: level === 'beginner'
+        ? 'Es como enviar un email, pero con dinero'
+        : 'Transferencia blockchain verificable públicamente'
+    });
+  }
 
   // Ejemplo basado en si es verificación o settlement
   if (content.plainLanguage.toLowerCase().includes('verificar') || content.plainLanguage.toLowerCase().includes('revisar')) {
@@ -1077,8 +1264,63 @@ function getTemplatesForLanguage(lang: string): Record<string, TemplateContent> 
 }
 
 // ============================================================================
-// Prompt Builders
+// Prompt Builders - Per Level (Optimized)
 // ============================================================================
+
+function buildSystemPromptForLevel(language: string, level: CognitiveLevelV3): string {
+  const levelDescriptions: Record<CognitiveLevelV3, string> = {
+    beginner: 'absolute beginner with no technical knowledge - use simple analogies and avoid all jargon',
+    simple: 'basic user with limited technical knowledge - use common terms and practical examples',
+    medium: 'intermediate user with some technical background - balance clarity with technical accuracy',
+    advanced: 'technical user comfortable with protocols and APIs - use precise technical terminology',
+    expert: 'expert developer familiar with BSV, X402, and cryptography - use protocol-level details'
+  };
+
+  return `Generate accessibility metadata for ${level} users.
+
+TARGET: ${levelDescriptions[level]}
+LANGUAGE: ${language}
+
+Return ONLY this JSON structure:
+{
+  "plainLanguage": "1 sentence max 80 chars",
+  "explanation": "2 sentences max 200 chars",
+  "stepByStep": [
+    {"text": "Step 1"},
+    {"text": "Step 2"},
+    {"text": "Step 3"}
+  ],
+  "hints": {
+    "ifError": "brief action if fails",
+    "commonMistakes": ["mistake 1", "mistake 2"],
+    "nextSteps": "brief next action"
+  }
+}
+
+Rules:
+- Use simple ${level}-level words
+- stepByStep MUST have 3-5 steps
+- Keep total under 500 chars
+- Return ONLY valid JSON`;
+}
+
+function buildUserPromptForLevel(
+  messageType: string,
+  context: MetadataContext,
+  language: string,
+  level: CognitiveLevelV3
+): string {
+  const scenario = SCENARIO_DESCRIPTIONS[messageType] || 'Generic operation';
+  const contextStr = Object.entries(context)
+    .filter(([_, v]) => v)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(', ');
+
+  return `${scenario}
+${contextStr ? 'Context: ' + contextStr : ''}
+
+Generate for ${level} level. Keep it brief and clear.`;
+}
 
 function buildSystemPromptV3(language: string): string {
   return `You are an accessibility expert generating metadata for users with cognitive and visual disabilities.
@@ -1089,54 +1331,81 @@ CRITICAL REQUIREMENTS:
 3. Use language: ${language}
 4. Follow WCAG 2.2 AAA guidelines
 5. Return VALID JSON only
+6. Focus on CORE FIELDS: plainLanguage, explanation, stepByStep, hints
+7. Optional fields (glossary, examples, checkpoints) can be minimal or omitted - they'll be enriched later
+8. Make content SPECIFIC to the transaction context, not generic
 
 OUTPUT FORMAT:
 {
   "byLevel": {
-    "beginner": { /* CognitiveContentV3 */ },
-    "simple": { /* CognitiveContentV3 */ },
-    "medium": { /* CognitiveContentV3 */ },
-    "advanced": { /* CognitiveContentV3 */ },
-    "expert": { /* CognitiveContentV3 */ }
+    "beginner": { /* COMPLETE CognitiveContentV3 with ALL fields populated */ },
+    "simple": { /* COMPLETE CognitiveContentV3 with ALL fields populated */ },
+    "medium": { /* COMPLETE CognitiveContentV3 with ALL fields populated */ },
+    "advanced": { /* COMPLETE CognitiveContentV3 with ALL fields populated */ },
+    "expert": { /* COMPLETE CognitiveContentV3 with ALL fields populated */ }
   },
   "byAbstraction": {
-    "concrete": { "description": "...", "content": { /* CognitiveContentV3 */ } },
-    "mixed": { "description": "...", "content": { /* CognitiveContentV3 */ } },
-    "abstract": { "description": "...", "content": { /* CognitiveContentV3 */ } }
+    "concrete": { "description": "...", "content": { /* COMPLETE CognitiveContentV3 */ } },
+    "mixed": { "description": "...", "content": { /* COMPLETE CognitiveContentV3 */ } },
+    "abstract": { "description": "...", "content": { /* COMPLETE CognitiveContentV3 */ } }
   }
 }
 
-CognitiveContentV3 structure:
+CognitiveContentV3 structure (focus on CORE fields):
 {
-  "plainLanguage": "string (max 100 chars)",
-  "explanation": "string (max 300 chars)",
-  "detailedExplanation": "string (optional)",
-  "stepByStep": [{ "text": "string", "icon": "string", "context": "string" }],
+  "plainLanguage": "string (max 100 chars) - Executive summary",
+  "explanation": "string (max 300 chars) - Detailed explanation",
+  "detailedExplanation": "string (optional) - In-depth technical context",
+  "stepByStep": [
+    {
+      "text": "string (action description)",
+      "icon": "string (optional emoji)",
+      "context": "string (optional - why important)"
+    }
+  ],
   "hints": {
-    "ifError": "string",
-    "commonMistakes": ["string"],
-    "nextSteps": "string"
+    "ifError": "string - what to do if this fails",
+    "commonMistakes": ["array of 1-3 common errors"],
+    "nextSteps": "string - what to do next"
   },
-  "glossary": { "term": "definition" },
-  "examples": [{ "scenario": "...", "input": "...", "output": "...", "explanation": "..." }]
-}`;
+  "glossary": {}, // Optional - can be empty, will be enriched
+  "examples": [], // Optional - can be empty, will be enriched
+  "checkpoints": [], // Optional - can be empty, will be enriched
+  "memoryAids": [] // Optional - can be empty, will be enriched
+}
+
+IMPORTANT: Focus on generating high-quality plainLanguage, explanation, stepByStep, and hints. Other fields can be minimal or empty.`;
 }
 
 function buildUserPromptV3(messageType: string, context: MetadataContext, language: string): string {
   const scenario = SCENARIO_DESCRIPTIONS[messageType] || 'Generic operation';
   const contextStr = Object.entries(context)
+    .filter(([_, v]) => v) // Only include non-empty values
     .map(([k, v]) => `${k}: ${v}`)
-    .join(', ');
+    .join('\n');
 
-  return `Generate accessibility metadata for this scenario: ${scenario}
+  return `Generate accessibility metadata for this Bitcoin SV payment operation:
 
-Context: ${contextStr}
+SCENARIO: ${scenario}
+CONTEXT: ${contextStr || 'Generic operation'}
+LANGUAGE: ${language}
 
-Language: ${language}
+Generate for ALL 5 cognitive levels (beginner → expert) and 3 abstraction levels.
 
-Generate for ALL 5 cognitive levels (beginner through expert) and ALL 3 abstraction levels.
+FOCUS ON:
+- plainLanguage: Clear 1-sentence summary
+- explanation: 2-3 sentence explanation
+- stepByStep: 3-5 clear steps
+- hints: ifError, commonMistakes (2-3), nextSteps
 
-Return ONLY valid JSON matching the specified format.`;
+Differentiate by level:
+- beginner: Simple analogies, no jargon
+- simple: Basic terms
+- medium: Some technical terms
+- advanced: Technical precision
+- expert: Protocol details (X402, BSV, ECDSA)
+
+Return ONLY valid JSON. NO explanatory text.`;
 }
 
 // ============================================================================

@@ -1602,33 +1602,32 @@ export const spanishTemplatesV2: MessageCatalogV2 = {
       },
       advanced: {
         plainLanguage:
-          'Transaction broadcast successful: accepted into network mempool with retry resilience',
+          'Tu pago fue procesado y enviado exitosamente a la blockchain BSV',
         explanation:
-          'broadcastTransaction() completó exitosamente con retry logic: (1) getTransaction() pre-check retornó 404 (tx no existe), (2) POST /tx/raw ejecutado con exponential backoff (hasta 3 intentos), (3) WhatsOnChain retornó 200 OK, (4) respuesta parseada con txid, (5) transacción ahora en mempool de nodos BSV, (6) será incluida en próximo bloque (tiempo promedio: 10 minutos, depende de fee rate).',
+          'La transacción completó el proceso de broadcast con mecanismos de reintento automático. El sistema verificó que no existía previamente, la envió a través de la API de WhatsOnChain con hasta 3 intentos en caso de fallas temporales, y recibió confirmación de que está en el mempool esperando ser incluida en un bloque (aproximadamente 10 minutos).',
         stepByStep: [
-          'Pre-broadcast check: await getTransaction(txid) → { found: false }',
-          'Attempt 1: POST https://api.whatsonchain.com/v1/bsv/{network}/tx/raw',
-          'If success (200): parse { txid } from response body',
-          'If transient failure (429/503/timeout): wait backoff delay (1s, 2s, 4s)',
-          'Retry with exponential backoff hasta maxRetries (3)',
-          'On success: return { success: true, txid, broadcastedAt: ISO timestamp }',
-          'Cache result in KV for idempotency: key=txid, TTL=24h',
+          'El sistema verificó que tu transacción no existía previamente',
+          'Se envió a la API de WhatsOnChain para broadcast a la red BSV',
+          'En caso de fallas de red, se reintenta automáticamente hasta 3 veces',
+          'La API confirmó que la transacción fue aceptada en el mempool',
+          'Ahora espera ser incluida en el próximo bloque minado',
+          'El tiempo estimado de confirmación es de 10 minutos',
         ],
         hints: {
           nextSteps:
-            'Client should: (1) store txid for future reference, (2) poll GET /tx/{txid} for confirmations, (3) wait for 1-6 confirmations depending on risk tolerance (1 conf ≈ 10min, 6 conf ≈ 60min).',
+            'Guarda el ID de transacción (txid) para consultar el estado. Puedes verificar confirmaciones cada 30 segundos. Para mayor seguridad espera 1-6 confirmaciones (10-60 minutos).',
         },
         examples: [
           {
-            scenario: 'Broadcast con retry por timeout',
-            input: 'Attempt 1: timeout, Attempt 2: success',
-            output: '{ success: true, txid, attempts: 2 }',
-            explanation: 'Retry logic manejó timeout transitorio exitosamente',
+            scenario: 'Broadcast con reintento por timeout',
+            input: 'Primer intento: timeout de red, Segundo intento: éxito',
+            output: 'Pago procesado exitosamente en el segundo intento',
+            explanation: 'El sistema manejó automáticamente la falla temporal de red',
           },
         ],
         memoryAids: [
-          '⚙️ Broadcast guarantee: at-most-once with idempotency checks',
-          '⚙️ Retry: 3 attempts, backoff [1s, 2s, 4s]',
+          '⚙️ El broadcast incluye verificación de duplicados y reintentos automáticos',
+          '⚙️ Máximo 3 intentos con esperas de 1s, 2s y 4s entre cada uno',
         ],
       },
       expert: {

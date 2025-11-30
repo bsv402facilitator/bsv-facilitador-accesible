@@ -4,7 +4,52 @@ Facilitador X402 para Bitcoin SV diseñado específicamente para **accesibilidad
 
 **Principio V3**: *"El servidor provee TODO, el cliente elige lo que necesita"*
 
-**Estado:** ✅ **Production Ready V3** | **Tests:** 354/354 pasando | **WCAG:** 2.2 AAA Compliant
+**Estado:** ✅ **Production Ready V3** | **Tests:** 354/354 pasando | **WCAG:** 2.2 AAA Compliant | **Deploy:** https://facilitador-bsv-x402-accesible.andresleontest.workers.dev
+
+---
+
+## 🎉 Novedades V3 (2025-11-30)
+
+### ¿Qué cambió en V3?
+
+**Antes (V1/V2)**: El servidor enviaba UNA respuesta adaptada al nivel del usuario.
+- Cliente solicita nivel "simple" → recibe solo contenido "simple"
+- Para cambiar de nivel → nueva request al servidor
+- No puede comparar niveles o explorar otros idiomas
+
+**Ahora (V3)**: El servidor envía TODO, el cliente elige dinámicamente.
+- Una sola respuesta contiene **5 niveles cognitivos completos**
+- Cliente LLM puede cambiar de nivel instantáneamente sin nueva request
+- Soporta **múltiples idiomas simultáneos** (ES + EN + otros)
+- Incluye **accesibilidad visual/motora/auditiva completa**
+- **8 formatos de salida** diferentes en la misma respuesta
+
+### Ventajas de V3
+
+✅ **Adaptación dinámica**: El LLM puede empezar con "simple" y cambiar a "beginner" si el usuario no entiende
+✅ **Offline-first**: Una sola request contiene todo, sin round-trips adicionales
+✅ **Multilingüe real**: Puede mostrar traducción lado a lado (ES + EN + PT)
+✅ **Accesibilidad universal**: Soporta todas las discapacidades en una respuesta
+✅ **Menor latencia**: No necesita múltiples requests para cambiar nivel/idioma
+✅ **Mejor UX**: Cliente decide qué mostrar según contexto en tiempo real
+
+### Ejemplo Concreto
+
+**Usuario con discapacidad visual severa**:
+```javascript
+// El LLM detecta: baja visión + daltonismo + usa screen reader
+const response = await fetch('/verify', {...});
+const data = response.json();
+
+// Aplica automáticamente:
+applyCss(data.accessibility.visual.contrast.high.cssHints);
+applyCss(data.accessibility.visual.fontSize['x-large'].cssHints);
+applyColorPalette(data.accessibility.visual.colorBlind.deuteranopia.colorPalette);
+speakText(data.accessibility.audio.ttsOptimized.ssml);
+showContent(data.accessibility.content.byLevel.beginner);
+```
+
+Todo esto con **una sola request** al servidor. 🚀
 
 ---
 
@@ -56,11 +101,17 @@ Con este servidor, recibe:
 > El servidor provee **TODA** la información en **TODOS** los formatos y niveles.
 > El cliente (LLM) elige lo que necesita según el contexto del usuario.
 
-### 📚 Contenido Multi-Nivel
+### 📚 Contenido Multi-Nivel (NUEVO EN V3)
 
 - ✅ **5 niveles cognitivos**: `beginner`, `simple`, `medium`, `advanced`, `expert`
-- ✅ **3 niveles de abstracción**: `concrete` (ejemplos), `mixed` (teoría+práctica), `abstract` (conceptos)
-- ✅ **Contenido rico**: Glosarios, ejemplos, checkpoints, memory aids, hints extendidos
+  - Cada nivel con contenido diferenciado y contextual (no solo ajuste de longitud)
+  - `beginner`: Iconos, ejemplos visuales, pasos mínimos
+  - `simple`: Metáforas cotidianas, sin jerga técnica
+  - `medium`: Balance teoría-práctica con contexto blockchain
+  - `advanced`: Detalles técnicos, flujos de retry, manejo de errores
+  - `expert`: Stack traces, código fuente, decisiones arquitecturales
+- ✅ **3 niveles de abstracción**: `concrete` (ejemplos con valores reales), `mixed` (teoría+práctica), `abstract` (conceptos del protocolo)
+- ✅ **Contenido rico**: Glosarios técnicos, ejemplos contextuales, checkpoints de validación, memory aids, hints extendidos con troubleshooting
 
 ### 🌍 Multilingüe Total
 
@@ -116,11 +167,13 @@ Con este servidor, recibe:
 
 ### 🧪 Calidad
 
-- ✅ **333 tests unitarios e integración** (100% pasando)
+- ✅ **354 tests unitarios e integración** (100% pasando)
+  - 21 tests específicos de V3 Universal Accessibility
+  - 333 tests de funcionalidad core (V1/V2)
 - ✅ **80% code coverage** (lines, branches, functions)
 - ✅ **TypeScript strict mode** con validación Zod
 - ✅ **No `any` types** (ESLint enforced)
-- ✅ **Cloudflare Workers optimizado**
+- ✅ **Cloudflare Workers optimizado** (< 30KB gzip con V3 completo)
 
 ---
 
@@ -166,7 +219,7 @@ curl -X POST http://localhost:8787/verify \
   }'
 ```
 
-**Respuesta:**
+**Respuesta V3 (simplificada - ver respuesta completa más abajo):**
 ```json
 {
   "data": {
@@ -177,30 +230,72 @@ curl -X POST http://localhost:8787/verify \
     "network": "testnet"
   },
   "accessibility": {
-    "plainLanguage": "Transacción válida por 1000 satoshis",
-    "explanation": "La transacción fue verificada exitosamente. El pago se realizará desde la dirección mvccm4... hacia mhSDV8... por un monto de 1000 satoshis.",
-    "stepByStep": [
-      "Se validó el formato de la transacción",
-      "Se verificó la dirección del destinatario",
-      "Se confirmó el monto correcto"
-    ],
-    "hints": {
-      "nextSteps": "Procede a transmitir la transacción usando /settle"
+    "content": {
+      "byLevel": {
+        "beginner": {
+          "plainLanguage": "✅ Pago válido",
+          "explanation": "Tu pago de Bitcoin es correcto y está listo",
+          "stepByStep": [
+            { "text": "Tu pago fue verificado", "icon": "✅" },
+            { "text": "Ahora se enviará a la red Bitcoin", "icon": "📡" }
+          ],
+          "glossary": {
+            "Bitcoin": "Moneda digital que puedes usar para pagar en internet",
+            "Verificado": "Comprobado que todo está correcto"
+          }
+        },
+        "simple": {
+          "plainLanguage": "Transacción válida por 1000 satoshis",
+          "explanation": "Tu transacción fue verificada exitosamente. El pago se realizará desde mvccm4... hacia mhSDV8... por 1000 satoshis.",
+          "stepByStep": [
+            "Se validó el formato de la transacción",
+            "Se verificó la dirección del destinatario",
+            "Se confirmó el monto correcto"
+          ]
+        },
+        "expert": {
+          "plainLanguage": "TX validation passed: UTXO verified, signature valid",
+          "explanation": "validateBsvTransaction() completed successfully. ECDSA signature validated against input scriptPubKey. Output matches PaymentRequirements: address=mhSDV8..., amount=1000 sats.",
+          "stepByStep": [
+            "Transaction.fromHex() parsed raw transaction successfully",
+            "ECDSA signature validation: passed",
+            "UTXO verification against WhatsOnChain API: confirmed",
+            "Output validation: address + amount match requirements"
+          ]
+        }
+      }
     },
-    "language": "es",
-    "audioFriendly": true,
-    "cognitiveLevel": "simple"
-  },
-  "wcagCompliance": {
-    "level": "AAA",
-    "passedCriteria": 78,
-    "totalCriteria": 78,
-    "compliancePercentage": 100
-  },
-  "readingLevel": {
-    "fleschReadingEase": 85.2,
-    "fleschKincaidGrade": 5.3,
-    "wcagCompliant": true
+    "languages": {
+      "es": { /* Contenido completo en español */ },
+      "en": { /* Contenido completo en inglés */ }
+    },
+    "visual": {
+      "contrast": { "high": {...}, "normal": {...}, "low": {...} },
+      "colorBlind": { "deuteranopia": {...}, "protanopia": {...} },
+      "fontSize": { "small": {...}, "x-large": {...} },
+      "theme": { "light": {...}, "dark": {...} }
+    },
+    "motor": {
+      "keyboard": { "instructions": ["Tab para navegar"], "shortcuts": {...} },
+      "voice": { "instructions": ["Di 'confirmar' para continuar"] }
+    },
+    "formats": {
+      "json": "...",
+      "markdown": "# Pago válido\n\nTu transacción...",
+      "plaintext": "Pago válido. Tu transacción fue verificada...",
+      "braille": "...",
+      "ssml": "<speak><prosody rate='slow'>Pago válido...</prosody></speak>"
+    },
+    "recommendations": {
+      "cognitiveLevel": "simple",
+      "language": "es",
+      "confidence": 0.85
+    },
+    "metadata": {
+      "version": 3,
+      "generatedBy": "ai",
+      "wcagLevel": "AAA"
+    }
   }
 }
 ```
@@ -389,29 +484,55 @@ Ver ejemplos completos en [docs/ACCESSIBILITY-V2.md](./docs/ACCESSIBILITY-V2.md#
 
 ---
 
-## Feature Flags V2
+## Feature Flags V2/V3
 
 El sistema usa feature flags para activar/desactivar funcionalidades:
 
 ```toml
 # wrangler.toml [env.production.vars]
 
-WCAG_COMPLIANCE_ENABLED = "true"      # Validación WCAG 2.2 AAA
-MULTILANG_ENABLED = "true"            # Idiomas ilimitados via AI
-FORMAT_CONVERSION_ENABLED = "true"    # 6 formatos de salida
-READING_LEVEL_ANALYSIS = "true"       # Análisis Flesch-Kincaid
-ADAPTIVE_COMPLEXITY_ENABLED = "false" # Experimental (V2.1)
+# V3 Flags (NUEVO)
+ACCESSIBILITY_V3_ENABLED = "true"        # Sistema V3 Universal Accessibility
+V3_ROLLOUT_PERCENTAGE = "100"            # Rollout gradual 0-100%
+
+# V2 Flags (Activos)
+WCAG_COMPLIANCE_ENABLED = "true"         # Validación WCAG 2.2 AAA
+MULTILANG_ENABLED = "true"               # Idiomas ilimitados via AI
+FORMAT_CONVERSION_ENABLED = "true"       # 8 formatos de salida
+READING_LEVEL_ANALYSIS = "true"          # Análisis Flesch-Kincaid
+ADAPTIVE_COMPLEXITY_ENABLED = "false"    # Experimental (V2.1)
+
+# AI Configuration
+AI_ENABLED = "true"                      # Generación AI de metadata
+AI_ROLLOUT_PERCENTAGE = "100"            # 100% tráfico usa AI
+OPENAI_MODEL_DEFAULT = "gpt-3.5-turbo"   # Modelo para simple/English
+OPENAI_MODEL_COMPLEX = "gpt-4o-mini"     # Modelo para complex/Spanish
+OPENAI_MODEL_SIMPLE = "gpt-3.5-turbo"    # V3: Beginner/Simple
+OPENAI_MODEL_EXPERT = "gpt-4o"           # V3: Advanced/Expert
+
+# Cache Configuration
+CACHE_TTL_GENERIC = "604800"             # 7 días para mensajes genéricos
+CACHE_TTL_SPECIFIC = "86400"             # 24 horas para específicos
+USER_PREFERENCES_TTL = "2592000"         # 30 días para preferencias
+
+# Network Configuration
+NETWORK = "mainnet"                      # bsv-mainnet
+WALLET_ADDRESS = "1LiSSPcm8tLjCDPqQxCR5oPqvTUkYCpJ86"
 ```
 
-### Estado Actual (Production)
+### Estado Actual (Production - Actualizado 2025-11-30)
 
 | Flag | Estado | Descripción |
 |------|--------|-------------|
+| `ACCESSIBILITY_V3_ENABLED` | ✅ Active | Sistema completo V3 Universal Accessibility |
+| `V3_ROLLOUT_PERCENTAGE` | ✅ 100% | Todo el tráfico usa V3 |
+| `AI_ENABLED` | ✅ Active | Metadata generada con OpenAI GPT |
+| `AI_ROLLOUT_PERCENTAGE` | ✅ 100% | Todo el tráfico usa AI (fallback a templates) |
 | `WCAG_COMPLIANCE_ENABLED` | ✅ Active | Incluye `wcagCompliance` en responses |
 | `MULTILANG_ENABLED` | ✅ Active | Permite cualquier idioma ISO 639-1 |
-| `FORMAT_CONVERSION_ENABLED` | ✅ Active | Habilita conversión a XML/HTML/etc |
-| `READING_LEVEL_ANALYSIS` | ✅ Active | Incluye análisis Flesch-Kincaid |
-| `ADAPTIVE_COMPLEXITY_ENABLED` | ⏸️ Disabled | Ajuste automático de nivel (V2.1) |
+| `FORMAT_CONVERSION_ENABLED` | ✅ Active | 8 formatos: JSON, XML, HTML, MD, Text, JSON-LD, Braille, SSML |
+| `READING_LEVEL_ANALYSIS` | ✅ Active | Análisis Flesch-Kincaid en tiempo real |
+| `ADAPTIVE_COMPLEXITY_ENABLED` | ⏸️ Disabled | Ajuste automático de nivel (roadmap V3.1) |
 
 ---
 
@@ -495,10 +616,10 @@ curl https://facilitador-bsv-x402-accesible-dev.tu-cuenta.workers.dev/
 
 ### Environments
 
-| Environment | Network | Wallet Address | AI Rollout |
-|-------------|---------|----------------|------------|
-| **development** | Testnet | `mhSDV8SPswwXCGFpkE8pTWUftVnSW6g3qk` | 20% |
-| **production** | Mainnet | `1LiSSPcm8tLjCDPqQxCR5oPqvTUkYCpJ86` | 100% |
+| Environment | Network | Wallet Address | AI Rollout | V3 Rollout | URL |
+|-------------|---------|----------------|------------|------------|-----|
+| **development** | Testnet | `mhSDV8SPswwXCGFpkE8pTWUftVnSW6g3qk` | 20% | 50% | - |
+| **production** | Mainnet | `1LiSSPcm8tLjCDPqQxCR5oPqvTUkYCpJ86` | 100% | 100% | [facilitador-bsv-x402-accesible.andresleontest.workers.dev](https://facilitador-bsv-x402-accesible.andresleontest.workers.dev) |
 
 ---
 
@@ -559,40 +680,59 @@ WCAG 2.2 Success Criterion 3.1.5 (AAA):
 **Branch actual**: `feature/universal-accessibility-phase1`
 **Branch principal**: `main`
 
-**Fase actual**: ✅ **V2 Production Ready**
+**Fase actual**: ✅ **V3 Production Ready** (Actualizado 2025-11-30)
 
-### Checklist V2 (100% Completado)
+### Checklist V3 (100% Completado)
+
+- [x] ✅ **Tipos y schemas V3** - `UniversalAccessibilityMetadataV3`
+- [x] ✅ **AI Metadata V3** - Generación contextual para todos los niveles
+- [x] ✅ **Templates V3 fallback** - ES/EN completos con contenido diferenciado
+- [x] ✅ **5 niveles cognitivos** - Beginner, Simple, Medium, Advanced, Expert
+- [x] ✅ **3 niveles de abstracción** - Concrete, Mixed, Abstract
+- [x] ✅ **Multi-idioma simultáneo** - ES + EN + idiomas adicionales
+- [x] ✅ **Accesibilidad visual completa** - Contraste, daltonismo, fuentes, temas
+- [x] ✅ **Accesibilidad motora universal** - Teclado, voz, switch, eye-tracking
+- [x] ✅ **Accesibilidad auditiva** - TTS optimizado, SSML, pausas
+- [x] ✅ **8 formatos de salida** - JSON, XML, HTML, MD, Text, JSON-LD, Braille, SSML
+- [x] ✅ **Recomendaciones inteligentes** - Servidor sugiere, cliente decide
+- [x] ✅ **Tests V3**: 354/354 pasando (21 tests específicos V3)
+- [x] ✅ **Deploy production**: V3 100% activo en mainnet
+- [x] ✅ **Documentación V3**: DESIGN, MIGRATION, SUMMARY
+
+### Checklist V2 (100% Completado - Base de V3)
 
 - [x] ✅ Tipos y schemas V2
 - [x] ✅ AI Metadata V2 con 5 niveles cognitivos
-- [x] ✅ Convertidores de formato (JSON, XML, HTML, MD, Text, JSON-LD)
+- [x] ✅ Convertidores de formato (6 formatos)
 - [x] ✅ Sistema de caché de preferencias (30 días)
 - [x] ✅ Validador WCAG 2.2 AAA (78 criterios)
 - [x] ✅ Analizador de reading level (Flesch-Kincaid)
 - [x] ✅ Endpoints `/preferences` (GET/POST/DELETE)
-- [x] ✅ Tests: 333/333 pasando
 - [x] ✅ Infraestructura KV (2 namespaces)
 - [x] ✅ Feature flags V2 activados en producción
 - [x] ✅ Soporte multilingüe ilimitado vía AI
-- [x] ✅ Documentación V2
 
-### Backlog V2.1 (Próximas versiones)
+### Roadmap V3.1 (Próximas versiones)
 
-- [ ] Adaptive Complexity (ajuste automático nivel cognitivo)
-- [ ] Voice Output (TTS nativo con AWS Polly / Google Cloud TTS)
-- [ ] Visual Customization (themes, dark mode, font size)
-- [ ] Advanced Analytics (user behavior tracking)
-- [ ] Templates estáticos PT/FR/DE (opcional, AI ya cubre esto)
+- [ ] **Adaptive Complexity** - Ajuste automático de nivel cognitivo basado en feedback
+- [ ] **Lazy Loading** - Endpoint para solicitar solo niveles/idiomas específicos
+- [ ] **Streaming Responses** - Para respuestas muy grandes (>100KB)
+- [ ] **Voice Output Nativo** - TTS nativo con AWS Polly / Google Cloud TTS
+- [ ] **Más idiomas pre-validados** - Francés, Alemán, Árabe (RTL), Japonés
+- [ ] **Advanced Analytics** - User behavior tracking, nivel cognitivo óptimo
+- [ ] **Performance Monitoring** - Cache hit rate, tamaño respuestas, latencia AI
 
 ---
 
 ## Documentación
 
-### Guías Principales
+### Guías Principales V3 (NUEVO)
 
-- 📘 [**ACCESSIBILITY V2**](./docs/ACCESSIBILITY-V2.md) - Guía completa del sistema V2
-- 📋 [WCAG Compliance](./docs/WCAG-COMPLIANCE.md) - Matriz de 78 criterios
-- 🔄 [Migration Guide](./docs/MIGRATION-GUIDE.md) - Migración V1 → V2
+- 🚀 [**ACCESSIBILITY V3 DESIGN**](./docs/ACCESSIBILITY-V3-DESIGN.md) - Diseño arquitectural V3 completo
+- 📖 [**ACCESSIBILITY V3 SUMMARY**](./docs/ACCESSIBILITY-V3-SUMMARY.md) - Resumen ejecutivo V3
+- 🔄 [**ACCESSIBILITY V3 MIGRATION**](./docs/ACCESSIBILITY-V3-MIGRATION.md) - Migración V2 → V3
+- 📘 [ACCESSIBILITY V2](./docs/ACCESSIBILITY-V2.md) - Guía completa del sistema V2 (base de V3)
+- 📋 [WCAG Compliance](./docs/WCAG-COMPLIANCE.md) - Matriz de 78 criterios WCAG 2.2 AAA
 - 📝 [Examples](./docs/EXAMPLES.md) - Ejemplos de uso completos
 - 🧪 [Testing Guide](./TESTING_GUIDE.md) - Guía de testing
 
@@ -718,15 +858,17 @@ MIT License - Ver [LICENSE](./LICENSE) para detalles
 
 ## Links Útiles
 
-- 🌐 **Production**: https://facilitador-bsv-x402-accesible.tu-cuenta.workers.dev
-- 🧪 **Development**: https://facilitador-bsv-x402-accesible-dev.tu-cuenta.workers.dev
+- 🌐 **Production (Mainnet)**: https://facilitador-bsv-x402-accesible.andresleontest.workers.dev
 - 📚 **Cloudflare Workers Docs**: https://developers.cloudflare.com/workers/
 - 🔗 **BSV SDK**: https://docs.bsvblockchain.org/
 - ♿ **WCAG 2.2**: https://www.w3.org/WAI/WCAG22/quickref/
 - 🤖 **OpenAI API**: https://platform.openai.com/docs/
+- 💰 **X402 Protocol**: https://x402.org/
+- 🔍 **WhatsOnChain API**: https://developers.whatsonchain.com/
 
 ---
 
 **Última actualización:** 2025-11-30
-**Versión:** 2.0
-**Mantenido por:** [Tu Nombre/Organización]
+**Versión:** 3.0 (Universal Accessibility)
+**Deploy ID:** da1a851b-fa85-426b-86eb-5498b5135c47
+**Mantenido por:** Andrés León

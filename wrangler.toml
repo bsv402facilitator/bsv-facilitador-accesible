@@ -43,6 +43,10 @@ READING_LEVEL_ANALYSIS = "true"      # Flesch-Kincaid + WCAG compliance
 # V3 Universal Accessibility - Development (start disabled)
 ACCESSIBILITY_V3_ENABLED = "false"   # V3 endpoints: /v3/verify, /v3/settle
 V3_ROLLOUT_PERCENTAGE = "0"          # Gradual rollout 0-100%
+# V3 Mejoras Críticas - Feature Flags
+FEATURE_STEP_BY_STEP_V2 = "true"         # Prioridad Crítica #1: stepByStep con timestamps
+FEATURE_CHECKPOINTS = "true"             # Prioridad Crítica #2: Checkpoints de comprensión
+FEATURE_STABLE_GLOSSARY = "true"         # Prioridad Crítica #3: Glosario estable (4 términos base)
 
 [[env.development.kv_namespaces]]
 binding = "METADATA_CACHE"
@@ -79,6 +83,10 @@ READING_LEVEL_ANALYSIS = "true"      # Flesch-Kincaid + WCAG compliance
 # V3 Universal Accessibility - Production (gradual rollout)
 ACCESSIBILITY_V3_ENABLED = "true"    # V3 endpoints: /v3/verify, /v3/settle
 V3_ROLLOUT_PERCENTAGE = "100"        # Start at 100% for production (fully enabled)
+# V3 Mejoras Críticas - Feature Flags (Activadas en producción)
+FEATURE_STEP_BY_STEP_V2 = "true"         # Prioridad Crítica #1: stepByStep con timestamps
+FEATURE_CHECKPOINTS = "true"             # Prioridad Crítica #2: Checkpoints de comprensión
+FEATURE_STABLE_GLOSSARY = "true"         # Prioridad Crítica #3: Glosario estable (4 términos base)
 
 [[env.production.kv_namespaces]]
 binding = "METADATA_CACHE"

@@ -1,0 +1,23 @@
+{
+  "payload": {
+    "x402Version": 1,
+    "scheme": "exact",
+    "network": "bsv-testnet",
+    "payload": {
+      "transaction": "0100000001fefd621853081b66a5d7e007e8be4862372d97312f28a1efed7ea2cb726882fb000000006a47304402205804af0267a887f71d955c5c63705dff6216195ab365d09e5a2a72cffa3308d802206bbf9a1505350af9969e4ca9f24d2acfd90878da632eb658c581f493ff9b70b5412103b2297a0efcbd44b11c2987c2c8f7984eefaa9285c61f5e8f106365a1f8e042c9ffffffff0250c30000000000001976a914ba27f99e007c7f605a8305e318c1abde3cd220ac88acd9c20000000000001976a9146da67fd613ec3f1d66f138e2947e879277f45ca288ac00000000"
+    }
+  },
+  "paymentRequirements": {
+    "scheme": "exact",
+    "network": "bsv-testnet",
+    "maxAmountRequired": "88888",
+    "resource": "https://example.com/unique-test-resource-timestamp",
+    "payTo": "mxVFsFW5N4mu1HPkxPttorvocvzeZ7KZyk",
+    "maxTimeoutSeconds": 3600
+  },
+  "accessibilityPreferences": {
+    "primaryLanguage": "es",
+    "languages": ["es"],
+    "cognitiveLevel": "expert"
+  }
+}

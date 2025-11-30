@@ -192,7 +192,7 @@ export async function broadcastTransaction(
 
       return {
         success: true,
-        txid: txid.replace(/"/g, ''), // Remover comillas si las hay
+        txid: txid.replace(/["\s\n\r]/g, ''), // Remover comillas, espacios y saltos de línea
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
