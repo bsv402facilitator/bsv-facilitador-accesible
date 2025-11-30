@@ -19,7 +19,7 @@ import {
   toJSONLD,
   optimizeForBraille,
 } from '../../../src/facilitator/accessibility/format-converters';
-import type { AccessibleResponseV2, UniversalAccessibilityMetadataV2, WCAGComplianceMetadata } from '../../../src/facilitator/types';
+import type { AccessibleResponseV2, UniversalAccessibilityMetadataV2, WCAGComplianceMetadataV2 } from '../../../src/facilitator/types';
 
 // ==================== Test Fixtures ====================
 
@@ -165,7 +165,7 @@ function createFullMetadata(): UniversalAccessibilityMetadataV2 {
   };
 }
 
-function createWCAGMetadata(): WCAGComplianceMetadata {
+function createWCAGMetadata(): WCAGComplianceMetadataV2 {
   return {
     version: '2.2',
     level: 'AAA',

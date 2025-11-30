@@ -4,8 +4,8 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import app from '../../src/facilitator/index';
-import { createMockEnv, mockOpenAISuccess, spyOnFetch } from '../helpers/ai-mocks';
-import type { Env } from '../../src/facilitator/types';
+import { createMockEnvV2, mockOpenAISuccess, spyOnFetch } from '../helpers/ai-mocks';
+import type { EnvV2 } from '../../src/facilitator/types';
 
 describe('AI Metadata Integration Tests', () => {
   let cleanupFetch: (() => void) | null = null;
@@ -19,7 +19,7 @@ describe('AI Metadata Integration Tests', () => {
 
   describe('GET / with AI enabled', () => {
     it('should return AI-generated metadata for supported networks', async () => {
-      const env = createMockEnv({ AI_ENABLED: 'true', AI_ROLLOUT_PERCENTAGE: '100' });
+      const env = createMockEnvV2({ AI_ENABLED: 'true', AI_ROLLOUT_PERCENTAGE: '100' });
       cleanupFetch = spyOnFetch(
         mockOpenAISuccess({
           plainLanguage: 'This facilitator supports BSV testnet',
@@ -28,23 +28,33 @@ describe('AI Metadata Integration Tests', () => {
         })
       );
 
-      const response = await app.request('/?language=en', {}, env);
+      const req = new Request('http://localhost/?language=en', {
+        method: 'GET',
+      });
+
+      const response = await app.fetch(req, env);
       const data = await response.json();
 
       expect(response.status).toBe(200);
       expect(data.data.networks).toContain('bsv-testnet');
+      // GET / uses V1 structure (AccessibleResponse)
       expect(data.accessibility.plainLanguage).toBe('This facilitator supports BSV testnet');
       expect(data.accessibility.language).toBe('en');
     });
 
     it('should fallback to templates when AI is disabled', async () => {
-      const env = createMockEnv({ AI_ENABLED: 'false' });
+      const env = createMockEnvV2({ AI_ENABLED: 'false' });
 
-      const response = await app.request('/?language=es', {}, env);
+      const req = new Request('http://localhost/?language=es', {
+        method: 'GET',
+      });
+
+      const response = await app.fetch(req, env);
       const data = await response.json();
 
       expect(response.status).toBe(200);
       expect(data.data.networks).toContain('bsv-testnet');
+      // GET / uses V1 structure (AccessibleResponse)
       expect(data.accessibility.plainLanguage).toBeDefined();
       expect(data.accessibility.language).toBe('es');
     });
@@ -52,7 +62,7 @@ describe('AI Metadata Integration Tests', () => {
 
   describe('POST /verify with AI', () => {
     it('should return AI-generated metadata for successful verification', async () => {
-      const env = createMockEnv({ AI_ENABLED: 'true', AI_ROLLOUT_PERCENTAGE: '100' });
+      const env = createMockEnvV2({ AI_ENABLED: 'true', AI_ROLLOUT_PERCENTAGE: '100' });
       cleanupFetch = spyOnFetch(
         mockOpenAISuccess({
           plainLanguage: 'Payment verified successfully',
@@ -85,21 +95,23 @@ describe('AI Metadata Integration Tests', () => {
         },
       };
 
-      const response = await app.request('/verify', {
+      const req = new Request('http://localhost/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(validPayload),
-      }, env);
+      });
+
+      const response = await app.fetch(req, env);
 
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.accessibility.plainLanguage).toBeDefined();
-      expect(data.accessibility.language).toBe('en');
+      expect(data.accessibility.content.plainLanguage).toBeDefined();
+      expect(data.accessibility.language.code).toBe('en');
     });
 
     it('should use cache on subsequent identical requests', async () => {
-      const env = createMockEnv({ AI_ENABLED: 'true', AI_ROLLOUT_PERCENTAGE: '100' });
+      const env = createMockEnvV2({ AI_ENABLED: 'true', AI_ROLLOUT_PERCENTAGE: '100' });
 
       let fetchCallCount = 0;
       cleanupFetch = spyOnFetch(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -132,21 +144,25 @@ describe('AI Metadata Integration Tests', () => {
       };
 
       // First request - should call OpenAI
-      const response1 = await app.request('/verify', {
+      const req1 = new Request('http://localhost/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(validPayload),
-      }, env);
+      });
+
+      const response1 = await app.fetch(req1, env);
 
       expect(response1.status).toBe(200);
       const initialFetchCount = fetchCallCount;
 
       // Second identical request - should use cache
-      const response2 = await app.request('/verify', {
+      const req2 = new Request('http://localhost/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(validPayload),
-      }, env);
+      });
+
+      const response2 = await app.fetch(req2, env);
 
       expect(response2.status).toBe(200);
 
@@ -157,7 +173,7 @@ describe('AI Metadata Integration Tests', () => {
 
   describe('POST /settle with AI', () => {
     it('should return AI-generated metadata for settlement errors', async () => {
-      const env = createMockEnv({ AI_ENABLED: 'true', AI_ROLLOUT_PERCENTAGE: '100' });
+      const env = createMockEnvV2({ AI_ENABLED: 'true', AI_ROLLOUT_PERCENTAGE: '100' });
       cleanupFetch = spyOnFetch(
         mockOpenAISuccess({
           plainLanguage: 'Transaction already on blockchain',
@@ -189,23 +205,25 @@ describe('AI Metadata Integration Tests', () => {
         },
       };
 
-      const response = await app.request('/settle', {
+      const req = new Request('http://localhost/settle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settlePayload),
-      }, env);
+      });
+
+      const response = await app.fetch(req, env);
 
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.accessibility.plainLanguage).toBeDefined();
-      expect(data.accessibility.cognitiveLevel).toBe('medium');
+      expect(data.accessibility.content.plainLanguage).toBeDefined();
+      expect(data.accessibility.cognitive.level).toBe('medium');
     });
   });
 
   describe('Fallback on AI failure', () => {
     it('should fallback to templates when OpenAI fails', async () => {
-      const env = createMockEnv({ AI_ENABLED: 'true', AI_ROLLOUT_PERCENTAGE: '100' });
+      const env = createMockEnvV2({ AI_ENABLED: 'true', AI_ROLLOUT_PERCENTAGE: '100' });
 
       // Mock OpenAI to return error
       cleanupFetch = spyOnFetch(async () => {
@@ -214,10 +232,15 @@ describe('AI Metadata Integration Tests', () => {
         });
       });
 
-      const response = await app.request('/?language=es', {}, env);
+      const req = new Request('http://localhost/?language=es', {
+        method: 'GET',
+      });
+
+      const response = await app.fetch(req, env);
       const data = await response.json();
 
       expect(response.status).toBe(200);
+      // GET / uses V1 structure (AccessibleResponse)
       expect(data.accessibility.plainLanguage).toBeDefined();
       expect(data.accessibility.language).toBe('es');
       // Should use template fallback
@@ -227,14 +250,15 @@ describe('AI Metadata Integration Tests', () => {
 
   describe('Performance under load', () => {
     it('should handle multiple concurrent requests efficiently', async () => {
-      const env = createMockEnv({ AI_ENABLED: 'true', AI_ROLLOUT_PERCENTAGE: '100' });
+      const env = createMockEnvV2({ AI_ENABLED: 'true', AI_ROLLOUT_PERCENTAGE: '100' });
       cleanupFetch = spyOnFetch(mockOpenAISuccess());
 
       const promises = [];
       for (let i = 0; i < 10; i++) {
-        promises.push(
-          app.request(`/?language=en&cognitiveLevel=simple`, {}, env)
-        );
+        const req = new Request('http://localhost/?language=en&cognitiveLevel=simple', {
+          method: 'GET',
+        });
+        promises.push(app.fetch(req, env));
       }
 
       const responses = await Promise.all(promises);
@@ -246,6 +270,7 @@ describe('AI Metadata Integration Tests', () => {
 
       // After first request, subsequent ones should use cache
       const data = await responses[0].json();
+      // GET / uses V1 structure (AccessibleResponse)
       expect(data.accessibility.plainLanguage).toBeDefined();
     });
   });

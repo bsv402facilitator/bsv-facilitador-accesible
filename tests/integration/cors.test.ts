@@ -1,11 +1,28 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import app from '../../src/facilitator/index';
+import { createMockEnvV2, spyOnFetch, mockOpenAISuccess } from '../helpers/ai-mocks';
 
 describe('CORS Middleware', () => {
+  let cleanupFetch: () => void;
+  const mockEnv = createMockEnvV2({
+    AI_ENABLED: 'false', // Disable AI for deterministic tests
+  });
+
+  beforeAll(() => {
+    // Mock OpenAI API
+    cleanupFetch = spyOnFetch(mockOpenAISuccess());
+  });
+
+  afterAll(() => {
+    cleanupFetch();
+  });
+
   it('should include CORS headers in responses', async () => {
-    const res = await app.request('/', {
+    const req = new Request('http://localhost/', {
       method: 'GET',
     });
+
+    const res = await app.fetch(req, mockEnv);
 
     expect(res.status).toBe(200);
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
@@ -26,18 +43,24 @@ describe('CORS Middleware', () => {
   it('should allow POST requests with CORS headers', async () => {
     const validRequest = {
       payload: {
+        x402Version: 1,
         network: 'bsv-testnet',
         scheme: 'exact',
-        txHex:
-          '0100000001a12345678901234567890123456789012345678901234567890123456789000000006b483045022100abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890022012345678901234567890abcdef1234567890abcdef1234567890abcdef123456012102aabbccdd11223344556677889900aabbccdd11223344556677889900aabbccddffffffff0201000000000000001976a914abc123def456789012345678901234567890123488ac10270000000000001976a914123456789012345678901234567890123456789088ac00000000',
+        payload: {
+          transaction: '0100000001a12345678901234567890123456789012345678901234567890123456789000000006b483045022100abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890022012345678901234567890abcdef1234567890abcdef1234567890abcdef123456012102aabbccdd11223344556677889900aabbccdd11223344556677889900aabbccddffffffff0201000000000000001976a914abc123def456789012345678901234567890123488ac10270000000000001976a914123456789012345678901234567890123456789088ac00000000',
+        },
       },
       paymentRequirements: {
+        scheme: 'exact',
+        network: 'bsv-testnet',
         payTo: 'mtZBZacoN7S2KW6aP6YXm9FMfNYFztS1oB',
         maxAmountRequired: '500',
+        resource: 'https://api.example.com/resource',
+        maxTimeoutSeconds: 300,
       },
     };
 
-    const res = await app.request('/verify', {
+    const req = new Request('http://localhost/verify', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -45,6 +68,8 @@ describe('CORS Middleware', () => {
       },
       body: JSON.stringify(validRequest),
     });
+
+    const res = await app.fetch(req, mockEnv);
 
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
   });
@@ -58,12 +83,14 @@ describe('CORS Middleware', () => {
     ];
 
     for (const origin of origins) {
-      const res = await app.request('/', {
+      const req = new Request('http://localhost/', {
         method: 'GET',
         headers: {
           Origin: origin,
         },
       });
+
+      const res = await app.fetch(req, mockEnv);
 
       expect(res.status).toBe(200);
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');

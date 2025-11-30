@@ -40,6 +40,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.0.0",
+    "@types/xml2js": "^0.4.14",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^2.1.0",
@@ -47,7 +48,8 @@
     "prettier": "^3.4.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0",
-    "wrangler": "^4.51.0"
+    "wrangler": "^4.51.0",
+    "xml2js": "^0.6.2"
   },
   "engines": {
     "node": ">=18.0.0"

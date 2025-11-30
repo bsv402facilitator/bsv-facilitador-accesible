@@ -2,7 +2,13 @@
  * Helpers para construcción de metadata accesible
  */
 
-import type { AccessibleMetadata, AccessibleResponse } from '../types';
+import type {
+  AccessibleMetadata,
+  AccessibleResponse,
+  AccessibleResponseV2,
+  UniversalAccessibilityMetadataV2,
+  WCAGComplianceMetadataV2,
+} from '../types';
 
 /**
  * Crea un AccessibleResponse envolviendo data con metadata accesible
@@ -71,5 +77,25 @@ export function buildMetadata(
     language: 'es',
     audioFriendly,
     cognitiveLevel,
+  };
+}
+
+/**
+ * Crea un AccessibleResponseV2 envolviendo data con metadata V2 y WCAG
+ *
+ * @param data - Response core (VerifyResponse, SettleResponse, etc)
+ * @param metadata - Universal Accessibility Metadata V2
+ * @param wcag - WCAG Compliance Metadata V2
+ * @returns AccessibleResponseV2 con data, accessibility y wcag
+ */
+export function createAccessibleResponseV2<T>(
+  data: T,
+  metadata: UniversalAccessibilityMetadataV2,
+  wcag: WCAGComplianceMetadataV2
+): AccessibleResponseV2<T> {
+  return {
+    data,
+    accessibility: metadata,
+    wcag,
   };
 }

@@ -7,7 +7,7 @@
  * - OpenAI API responses
  */
 
-import type { Env, AccessibleMetadata } from '../../src/facilitator/types';
+import type { Env, EnvV2, AccessibleMetadata } from '../../src/facilitator/types';
 
 // ============================================================================
 // Mock Env
@@ -28,6 +28,30 @@ export function createMockEnv(overrides: Partial<Env> = {}): Env {
     METADATA_CACHE: createMockKV(),
     WALLET_ADDRESS: 'mhSDV8SPswwXCGFpkE8pTWUftVnSW6g3qk',
     NETWORK: 'testnet',
+    ...overrides,
+  };
+}
+
+/**
+ * Create a mock EnvV2 object for testing
+ */
+export function createMockEnvV2(overrides: Partial<EnvV2> = {}): EnvV2 {
+  return {
+    OPENAI_API_KEY: 'sk-test-mock-api-key',
+    AI_ENABLED: 'true',
+    AI_ROLLOUT_PERCENTAGE: '100',
+    OPENAI_MODEL_DEFAULT: 'gpt-4o-mini',
+    OPENAI_MODEL_COMPLEX: 'gpt-4o-mini',
+    CACHE_TTL_GENERIC: '604800',
+    CACHE_TTL_SPECIFIC: '86400',
+    METADATA_CACHE: createMockKV(),
+    USER_PREFERENCES: createMockKV(),
+    WALLET_ADDRESS: 'mhSDV8SPswwXCGFpkE8pTWUftVnSW6g3qk',
+    NETWORK: 'testnet',
+    FORMAT_CONVERSION_ENABLED: 'true',
+    MULTILANG_ENABLED: 'true',
+    READING_LEVEL_ANALYSIS: 'true',
+    ADAPTIVE_COMPLEXITY_ENABLED: 'false',
     ...overrides,
   };
 }
