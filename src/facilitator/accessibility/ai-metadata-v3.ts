@@ -33,6 +33,7 @@ import { calculateReadingLevel } from './reading-level';
 import { createStableGlossary, detectScenarios } from './glossary-base';
 import { generateCheckpoints, toBaseCheckpoints } from './checkpoint-generator';
 import { generateSteps } from './step-generator';
+import { generateVoiceCommands } from './voice-commands';
 
 // ============================================================================
 // Constants
@@ -320,7 +321,7 @@ async function generateLanguageContentWithAI(
       // Fallback to template for failed level
       logger.warn('AI failed for level, using template', { level });
       const templateContent = createTemplateContent(messageType, context, language);
-      byLevel[level] = createLevelVariant(templateContent, level);
+      byLevel[level] = createLevelVariant(templateContent, level, messageType);
     }
   }
 
@@ -437,12 +438,12 @@ async function generateLanguageContentWithAI(
 /**
  * Create level-specific variant from base template content
  */
-function createLevelVariant(base: CognitiveContentV3, level: CognitiveLevelV3): CognitiveContentV3 {
+function createLevelVariant(base: CognitiveContentV3, level: CognitiveLevelV3, messageType: string): CognitiveContentV3 {
   switch (level) {
     case 'beginner':
-      return createBeginnerContent(base);
+      return createBeginnerContent(base, messageType);
     case 'simple':
-      return createSimpleContent(base);
+      return createSimpleContent(base, messageType);
     case 'medium':
       return createMediumContent(base);
     case 'advanced':
@@ -466,8 +467,8 @@ async function generateLanguageContentFromTemplate(
 
   // Create variants for different cognitive levels
   const byLevel: Record<CognitiveLevelV3, CognitiveContentV3> = {
-    beginner: createBeginnerContent(baseContent),
-    simple: createSimpleContent(baseContent),
+    beginner: createBeginnerContent(baseContent, messageType),
+    simple: createSimpleContent(baseContent, messageType),
     medium: createMediumContent(baseContent),
     advanced: createAdvancedContent(baseContent),
     expert: createExpertContent(baseContent),
@@ -542,7 +543,7 @@ function createTemplateContent(
 // Content Level Variants
 // ============================================================================
 
-function createBeginnerContent(base: CognitiveContentV3): CognitiveContentV3 {
+function createBeginnerContent(base: CognitiveContentV3, messageType: string): CognitiveContentV3 {
   const simplifiedBase = {
     ...base,
     plainLanguage: simplifyText(base.plainLanguage, 'beginner'),
@@ -560,10 +561,11 @@ function createBeginnerContent(base: CognitiveContentV3): CognitiveContentV3 {
       '🔐 El sistema verifica que todo esté correcto antes de enviar',
       '✅ Si algo falla, te lo explicaremos en palabras simples'
     ],
+    voiceCommandHints: generateVoiceCommands(messageType, 'beginner'),
   };
 }
 
-function createSimpleContent(base: CognitiveContentV3): CognitiveContentV3 {
+function createSimpleContent(base: CognitiveContentV3, messageType: string): CognitiveContentV3 {
   const simplifiedBase = {
     ...base,
     plainLanguage: simplifyText(base.plainLanguage, 'simple'),
@@ -579,6 +581,7 @@ function createSimpleContent(base: CognitiveContentV3): CognitiveContentV3 {
       'El pago se revisa antes de enviarse',
       'Cada paso tiene una confirmación',
     ],
+    voiceCommandHints: generateVoiceCommands(messageType, 'simple'),
   };
 }
 

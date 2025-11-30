@@ -48,6 +48,10 @@ import {
   toHTML,
   toJSONLD,
 } from './accessibility/format-converters';
+import {
+  detectPreferencesFromRequest,
+  preferencesToAccessibilityFormat,
+} from './accessibility/preference-detector';
 
 const app = new Hono<{ Bindings: EnvV2 & EnvV3 }>();
 
@@ -275,26 +279,34 @@ app.post(
     const requestBody = c.req.valid('json');
     const { payload, paymentRequirements, accessibilityPreferences } = requestBody;
 
+    // MEJORA #5: Detectar preferencias desde HTTP headers
+    const featurePreferenceDetection = c.env.FEATURE_PREFERENCE_DETECTION === 'true';
+    const detectedPrefs = featurePreferenceDetection
+      ? detectPreferencesFromRequest(c.req.raw)
+      : null;
+    const convertedPrefs = detectedPrefs ? preferencesToAccessibilityFormat(detectedPrefs) : {};
+
     // Usar preferencias V3 completas con valores por defecto
+    // Prioridad: 1) Preferencias explícitas del body, 2) Preferencias detectadas, 3) Defaults
     const preferences: AccessibilityPreferencesV3 = {
-      primaryLanguage: accessibilityPreferences?.primaryLanguage ?? 'es',
+      primaryLanguage: accessibilityPreferences?.primaryLanguage ?? (convertedPrefs['primaryLanguage'] as string) ?? 'es',
       languages: accessibilityPreferences?.languages ?? ['es', 'en'],
-      dialect: accessibilityPreferences?.dialect,
-      cognitiveLevel: accessibilityPreferences?.cognitiveLevel ?? 'simple',
+      dialect: accessibilityPreferences?.dialect ?? convertedPrefs['dialect'],
+      cognitiveLevel: accessibilityPreferences?.cognitiveLevel ?? (convertedPrefs['cognitiveLevel'] as any) ?? 'simple',
       abstractionLevel: accessibilityPreferences?.abstractionLevel ?? 'concrete',
       includeExamples: accessibilityPreferences?.includeExamples ?? true,
       includeGlossary: accessibilityPreferences?.includeGlossary ?? true,
       includeCheckpoints: accessibilityPreferences?.includeCheckpoints ?? false,
-      contrastMode: accessibilityPreferences?.contrastMode ?? 'normal',
-      colorBlindType: accessibilityPreferences?.colorBlindType ?? 'none',
-      fontSize: accessibilityPreferences?.fontSize ?? 'medium',
-      darkMode: accessibilityPreferences?.darkMode ?? false,
-      screenReaderOptimized: accessibilityPreferences?.screenReaderOptimized ?? true,
-      motorInput: accessibilityPreferences?.motorInput,
+      contrastMode: accessibilityPreferences?.contrastMode ?? (convertedPrefs['contrastMode'] as any) ?? 'normal',
+      colorBlindType: accessibilityPreferences?.colorBlindType ?? (convertedPrefs['colorBlindType'] as any) ?? 'none',
+      fontSize: accessibilityPreferences?.fontSize ?? (convertedPrefs['fontSize'] as any) ?? 'medium',
+      darkMode: accessibilityPreferences?.darkMode ?? convertedPrefs['darkMode'] ?? false,
+      screenReaderOptimized: accessibilityPreferences?.screenReaderOptimized ?? convertedPrefs['screenReaderMode'] ?? true,
+      motorInput: accessibilityPreferences?.motorInput ?? (convertedPrefs['motorInput'] as any),
       includeKeyboardHints: accessibilityPreferences?.includeKeyboardHints ?? true,
-      includeVoiceHints: accessibilityPreferences?.includeVoiceHints ?? false,
-      audioFriendly: accessibilityPreferences?.audioFriendly ?? true,
-      ttsOptimized: accessibilityPreferences?.ttsOptimized ?? true,
+      includeVoiceHints: accessibilityPreferences?.includeVoiceHints ?? convertedPrefs['voiceControlEnabled'] ?? false,
+      audioFriendly: accessibilityPreferences?.audioFriendly ?? convertedPrefs['ttsEnabled'] ?? true,
+      ttsOptimized: accessibilityPreferences?.ttsOptimized ?? convertedPrefs['ttsEnabled'] ?? true,
       preferredFormats: accessibilityPreferences?.preferredFormats ?? ['json'],
       brailleOptimized: accessibilityPreferences?.brailleOptimized ?? false,
       includeSemanticMarkup: accessibilityPreferences?.includeSemanticMarkup ?? false,
@@ -541,26 +553,34 @@ app.post(
     const requestBody = c.req.valid('json');
     const { payload, paymentRequirements, accessibilityPreferences } = requestBody;
 
+    // MEJORA #5: Detectar preferencias desde HTTP headers
+    const featurePreferenceDetection = c.env.FEATURE_PREFERENCE_DETECTION === 'true';
+    const detectedPrefs = featurePreferenceDetection
+      ? detectPreferencesFromRequest(c.req.raw)
+      : null;
+    const convertedPrefs = detectedPrefs ? preferencesToAccessibilityFormat(detectedPrefs) : {};
+
     // Usar preferencias V3 completas con valores por defecto
+    // Prioridad: 1) Preferencias explícitas del body, 2) Preferencias detectadas, 3) Defaults
     const preferences: AccessibilityPreferencesV3 = {
-      primaryLanguage: accessibilityPreferences?.primaryLanguage ?? 'es',
+      primaryLanguage: accessibilityPreferences?.primaryLanguage ?? (convertedPrefs['primaryLanguage'] as string) ?? 'es',
       languages: accessibilityPreferences?.languages ?? ['es', 'en'],
-      dialect: accessibilityPreferences?.dialect,
-      cognitiveLevel: accessibilityPreferences?.cognitiveLevel ?? 'simple',
+      dialect: accessibilityPreferences?.dialect ?? convertedPrefs['dialect'],
+      cognitiveLevel: accessibilityPreferences?.cognitiveLevel ?? (convertedPrefs['cognitiveLevel'] as any) ?? 'simple',
       abstractionLevel: accessibilityPreferences?.abstractionLevel ?? 'concrete',
       includeExamples: accessibilityPreferences?.includeExamples ?? true,
       includeGlossary: accessibilityPreferences?.includeGlossary ?? true,
       includeCheckpoints: accessibilityPreferences?.includeCheckpoints ?? false,
-      contrastMode: accessibilityPreferences?.contrastMode ?? 'normal',
-      colorBlindType: accessibilityPreferences?.colorBlindType ?? 'none',
-      fontSize: accessibilityPreferences?.fontSize ?? 'medium',
-      darkMode: accessibilityPreferences?.darkMode ?? false,
-      screenReaderOptimized: accessibilityPreferences?.screenReaderOptimized ?? true,
-      motorInput: accessibilityPreferences?.motorInput,
+      contrastMode: accessibilityPreferences?.contrastMode ?? (convertedPrefs['contrastMode'] as any) ?? 'normal',
+      colorBlindType: accessibilityPreferences?.colorBlindType ?? (convertedPrefs['colorBlindType'] as any) ?? 'none',
+      fontSize: accessibilityPreferences?.fontSize ?? (convertedPrefs['fontSize'] as any) ?? 'medium',
+      darkMode: accessibilityPreferences?.darkMode ?? convertedPrefs['darkMode'] ?? false,
+      screenReaderOptimized: accessibilityPreferences?.screenReaderOptimized ?? convertedPrefs['screenReaderMode'] ?? true,
+      motorInput: accessibilityPreferences?.motorInput ?? (convertedPrefs['motorInput'] as any),
       includeKeyboardHints: accessibilityPreferences?.includeKeyboardHints ?? true,
-      includeVoiceHints: accessibilityPreferences?.includeVoiceHints ?? false,
-      audioFriendly: accessibilityPreferences?.audioFriendly ?? true,
-      ttsOptimized: accessibilityPreferences?.ttsOptimized ?? true,
+      includeVoiceHints: accessibilityPreferences?.includeVoiceHints ?? convertedPrefs['voiceControlEnabled'] ?? false,
+      audioFriendly: accessibilityPreferences?.audioFriendly ?? convertedPrefs['ttsEnabled'] ?? true,
+      ttsOptimized: accessibilityPreferences?.ttsOptimized ?? convertedPrefs['ttsEnabled'] ?? true,
       preferredFormats: accessibilityPreferences?.preferredFormats ?? ['json'],
       brailleOptimized: accessibilityPreferences?.brailleOptimized ?? false,
       includeSemanticMarkup: accessibilityPreferences?.includeSemanticMarkup ?? false,

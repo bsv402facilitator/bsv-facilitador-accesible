@@ -700,6 +700,19 @@ export interface ComprehensionCheckpointV3 {
 /**
  * V3 Cognitive Content - Complete content for ONE cognitive level
  */
+/**
+ * V3 Voice Command Hints - For motor accessibility
+ */
+export interface VoiceCommandHints {
+  commands: Array<{
+    trigger: string; // "verificar pago"
+    action: string; // "ver el estado de la transacción"
+    context?: string; // Cuándo usar este comando
+  }>;
+  examples: string[]; // "Di 'verificar pago' para..."
+  wakePhrases?: string[]; // ["Hey Bitcoin", "Ok BSV"]
+}
+
 export interface CognitiveContentV3 {
   plainLanguage: string;
   explanation: string;
@@ -711,6 +724,7 @@ export interface CognitiveContentV3 {
   checkpoints?: ComprehensionCheckpointV3[];
   readingLevel?: ReadingLevelV3;
   memoryAids?: string[];
+  voiceCommandHints?: VoiceCommandHints; // NUEVO: comandos de voz para accesibilidad motora
 }
 
 /**
@@ -971,4 +985,15 @@ export interface EnvV3 extends EnvV2 {
   // V3 Performance
   LAZY_LOADING_ENABLED?: string; // Allow clients to request specific levels/languages only
   STREAMING_ENABLED?: string; // Enable streaming for large responses
+
+  // V3 Mejoras Críticas
+  FEATURE_STEP_BY_STEP_V2?: string;
+  FEATURE_CHECKPOINTS?: string;
+  FEATURE_STABLE_GLOSSARY?: string;
+
+  // V3 Prioridades Altas
+  FEATURE_VOICE_COMMANDS?: string;
+  FEATURE_PREFERENCE_DETECTION?: string;
+  FEATURE_ADAPTIVE_COMPLEXITY_V3?: string;
+  FEATURE_REAL_EXAMPLES?: string;
 }

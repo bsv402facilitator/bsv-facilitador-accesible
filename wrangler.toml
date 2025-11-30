@@ -47,6 +47,11 @@ V3_ROLLOUT_PERCENTAGE = "0"          # Gradual rollout 0-100%
 FEATURE_STEP_BY_STEP_V2 = "true"         # Prioridad Crítica #1: stepByStep con timestamps
 FEATURE_CHECKPOINTS = "true"             # Prioridad Crítica #2: Checkpoints de comprensión
 FEATURE_STABLE_GLOSSARY = "true"         # Prioridad Crítica #3: Glosario estable (4 términos base)
+# V3 Prioridades Altas - Feature Flags (Semanas 2-3)
+FEATURE_VOICE_COMMANDS = "false"         # Prioridad Alta #4: Comandos de voz (gradual)
+FEATURE_PREFERENCE_DETECTION = "true"    # Prioridad Alta #5: Detección HTTP headers (safe)
+FEATURE_ADAPTIVE_COMPLEXITY_V3 = "false" # Prioridad Alta #6: Sistema adaptativo (gradual)
+FEATURE_REAL_EXAMPLES = "true"           # Prioridad Alta #7: Ejemplos con datos reales (safe)
 
 [[env.development.kv_namespaces]]
 binding = "METADATA_CACHE"
@@ -87,6 +92,11 @@ V3_ROLLOUT_PERCENTAGE = "100"        # Start at 100% for production (fully enabl
 FEATURE_STEP_BY_STEP_V2 = "true"         # Prioridad Crítica #1: stepByStep con timestamps
 FEATURE_CHECKPOINTS = "true"             # Prioridad Crítica #2: Checkpoints de comprensión
 FEATURE_STABLE_GLOSSARY = "true"         # Prioridad Crítica #3: Glosario estable (4 términos base)
+# V3 Prioridades Altas - Feature Flags (Semanas 2-3) - Producción
+FEATURE_VOICE_COMMANDS = "true"          # Prioridad Alta #4: Comandos de voz
+FEATURE_PREFERENCE_DETECTION = "true"    # Prioridad Alta #5: Detección HTTP headers
+FEATURE_ADAPTIVE_COMPLEXITY_V3 = "false" # Prioridad Alta #6: Sistema adaptativo (próximo deploy)
+FEATURE_REAL_EXAMPLES = "true"           # Prioridad Alta #7: Ejemplos con datos reales
 
 [[env.production.kv_namespaces]]
 binding = "METADATA_CACHE"
