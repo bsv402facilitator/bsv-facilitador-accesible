@@ -55,9 +55,8 @@ wallet-testnet.json
 verify-payload.json
 settle-payload.json
 
-# Claude Code settings (may contain API keys)
-.claude/settings.local.json
-.claude/*.log
+# Claude Code (may contain API keys and sensitive data)
+.claude/
 
 # Test scripts and outputs
 test-*.mjs
@@ -78,6 +77,10 @@ docs/drafts/
 docs/*.draft.md
 *.notes.md
 TODO.local.md
+
+# Markdown files (except README.md)
+*.md
+!README.md
 
 # Resource server (if separate deployment)
 src/resource-server/*.local.ts

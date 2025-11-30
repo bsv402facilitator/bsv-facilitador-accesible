@@ -33,7 +33,7 @@ import { calculateReadingLevel } from './reading-level';
 import { createStableGlossary, detectScenarios } from './glossary-base';
 import { generateCheckpoints, toBaseCheckpoints } from './checkpoint-generator';
 import { generateSteps } from './step-generator';
-import { generateVoiceCommands } from './voice-commands';
+import { generateVoiceCommands, generateNavigationCommands } from './voice-commands';
 import { addIconsToContent } from './icon-support';
 import {
   optimizeForBrailleV3,
@@ -145,6 +145,7 @@ export async function createMetadataWithAIV3(
 
   // Build complete V3 metadata structure
   const metadata = await buildUniversalMetadataV3(
+    messageType,
     languageContent,
     context,
     preferences,
@@ -660,6 +661,7 @@ function createExpertContent(base: CognitiveContentV3): CognitiveContentV3 {
  * Build complete V3 metadata structure with ALL variants
  */
 async function buildUniversalMetadataV3(
+  messageType: string,
   languageContent: Record<string, LanguageContentV3>,
   _context: MetadataContext,
   preferences: AccessibilityPreferencesV3,
@@ -684,8 +686,8 @@ async function buildUniversalMetadataV3(
   // Build visual section (all variants) - NOW PERSONALIZED
   const visual = buildVisualSection(preferences);
 
-  // Build motor section (all input methods)
-  const motor = buildMotorSection();
+  // Build motor section (all input methods) - WITH CONTEXTUAL VOICE COMMANDS
+  const motor = buildMotorSection(messageType, preferences.cognitiveLevel || 'simple');
 
   // Build audio section (all variants)
   const audio = buildAudioSection(content);
@@ -827,27 +829,57 @@ function buildVisualSection(preferences?: AccessibilityPreferencesV3): VisualSec
   };
 }
 
-function buildMotorSection(): MotorSectionV3 {
+function buildMotorSection(
+  messageType: string,
+  cognitiveLevel: CognitiveLevelV3
+): MotorSectionV3 {
+  // Generate contextual voice commands based on scenario and cognitive level
+  const voiceHints = generateVoiceCommands(messageType, cognitiveLevel);
+
+  // Generate navigation commands if applicable
+  const hasSteps = true; // Assume content has steps
+  const hasGlossary = true; // Assume content has glossary
+  const navCommands = generateNavigationCommands(hasSteps, hasGlossary);
+
+  // Merge voice commands
+  const allVoiceCommands = [...voiceHints.commands, ...navCommands.commands];
+  const allExamples = [...voiceHints.examples, ...navCommands.examples];
+
   return {
     keyboard: {
-      instructions: ['Use Tab to navigate', 'Press Enter to confirm', 'Press Esc to cancel'],
-      shortcuts: { navigate: 'Tab', confirm: 'Enter', cancel: 'Esc' },
-      timing: { estimatedTime: '30 seconds', adjustable: true },
+      instructions: [
+        'Tab para navegar entre elementos',
+        'Enter para confirmar acciones',
+        'Escape para cancelar',
+        'Flechas para navegar por pasos',
+      ],
+      shortcuts: { navigate: 'Tab', confirm: 'Enter', cancel: 'Escape', arrows: 'Arrow keys' },
+      timing: { estimatedTime: '30 segundos', adjustable: true },
     },
     voice: {
-      instructions: ['Say "continue" to proceed', 'Say "help" for assistance', 'Say "cancel" to stop'],
-      shortcuts: { proceed: 'continue', help: 'help', cancel: 'cancel' },
-      timing: { estimatedTime: '45 seconds', adjustable: true },
+      instructions: allExamples.slice(0, 5), // Top 5 examples
+      shortcuts: Object.fromEntries(
+        allVoiceCommands.slice(0, 10).map((c) => [c.trigger, c.action])
+      ),
+      timing: { estimatedTime: '20 segundos', adjustable: true },
     },
     switch: {
-      instructions: ['Single press to select', 'Double press to confirm', 'Long press for menu'],
+      instructions: [
+        'Presión simple para seleccionar',
+        'Doble presión para confirmar',
+        'Presión larga para menú de opciones',
+      ],
       shortcuts: { select: 'single', confirm: 'double', menu: 'long' },
-      timing: { estimatedTime: '60 seconds', adjustable: true },
+      timing: { estimatedTime: '60 segundos', adjustable: true },
     },
     eye: {
-      instructions: ['Look at option to select', 'Hold gaze for 2 seconds to confirm', 'Look away to cancel'],
+      instructions: [
+        'Mira la opción para seleccionar',
+        'Mantén la mirada 2 segundos para confirmar',
+        'Mira fuera para cancelar',
+      ],
       shortcuts: { select: 'gaze', confirm: 'hold-2s', cancel: 'look-away' },
-      timing: { estimatedTime: '40 seconds', adjustable: true },
+      timing: { estimatedTime: '40 segundos', adjustable: true },
     },
   };
 }
