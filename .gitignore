@@ -54,4 +54,57 @@ Thumbs.db
 wallet-testnet.json
 verify-payload.json
 settle-payload.json
+
+# Claude Code settings (may contain API keys)
 .claude/settings.local.json
+.claude/*.log
+
+# Test scripts and outputs
+test-*.mjs
+test-*.js
+test-output*.json
+payment-*.json
+transaction-*.json
+wrangler-tail*.log
+
+# Development scripts
+scripts/dev/
+scripts/test/
+*.test.local.ts
+*.test.local.js
+
+# Documentation artifacts
+docs/drafts/
+docs/*.draft.md
+*.notes.md
+TODO.local.md
+
+# Resource server (if separate deployment)
+src/resource-server/*.local.ts
+src/resource-server/*.local.js
+
+# Local development configs
+wrangler.toml.local
+tsconfig.local.json
+
+# Temporary analysis files
+analysis/
+benchmarks/
+profiling/
+
+# Python virtual environments (if any)
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Mac OS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
