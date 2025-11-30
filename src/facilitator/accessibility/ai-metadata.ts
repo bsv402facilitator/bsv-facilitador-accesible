@@ -286,6 +286,21 @@ function selectModel(
 /**
  * Build system prompt for OpenAI
  */
+/**
+ * Convierte código ISO 639-1 a nombre completo del idioma en inglés
+ */
+function getLanguageName(code: string): string {
+  const names: Record<string, string> = {
+    es: 'Spanish', en: 'English', pt: 'Portuguese', fr: 'French', de: 'German',
+    it: 'Italian', ja: 'Japanese', ko: 'Korean', zh: 'Chinese', ru: 'Russian',
+    ar: 'Arabic', hi: 'Hindi', nl: 'Dutch', sv: 'Swedish', pl: 'Polish',
+    tr: 'Turkish', vi: 'Vietnamese', th: 'Thai', id: 'Indonesian', cs: 'Czech',
+    da: 'Danish', fi: 'Finnish', no: 'Norwegian', el: 'Greek', he: 'Hebrew',
+    hu: 'Hungarian', ro: 'Romanian', uk: 'Ukrainian', ca: 'Catalan',
+  };
+  return names[code.toLowerCase()] || code.toUpperCase();
+}
+
 function buildSystemPrompt(preferences: AccessibilityPreferences): string {
   const { language, cognitiveLevel, audioFriendly } = preferences;
 
@@ -296,7 +311,7 @@ function buildSystemPrompt(preferences: AccessibilityPreferences): string {
   };
 
   return `You are an accessibility expert for blockchain payments.
-Language: ${language === 'es' ? 'Spanish' : 'English'}
+Language: ${getLanguageName(language)}
 Cognitive Level: ${cognitiveMapping[cognitiveLevel]}
 Audio Friendly: ${audioFriendly ? 'yes - optimize for screen readers' : 'no'}
 
@@ -341,7 +356,7 @@ function buildUserPrompt(
 Scenario: ${scenario}
 Context: ${JSON.stringify(cleanContext)}
 
-Generate accessibility metadata in ${language === 'es' ? 'Spanish' : 'English'} at ${cognitiveLevel} complexity level.`;
+Generate accessibility metadata in ${getLanguageName(language)} at ${cognitiveLevel} complexity level.`;
 }
 
 /**

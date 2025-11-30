@@ -344,15 +344,20 @@ ${includeExamples ? 'Include 1-2 concrete examples.' : 'No examples needed.'}`;
 /**
  * Get human-readable language name
  */
+/**
+ * Convierte código ISO 639-1 a nombre completo del idioma en inglés
+ * Soporta los idiomas más comunes, fallback a capitalización del código
+ */
 function getLanguageName(code: string): string {
   const names: Record<string, string> = {
-    es: 'Spanish',
-    en: 'English',
-    pt: 'Portuguese',
-    fr: 'French',
-    de: 'German',
+    es: 'Spanish', en: 'English', pt: 'Portuguese', fr: 'French', de: 'German',
+    it: 'Italian', ja: 'Japanese', ko: 'Korean', zh: 'Chinese', ru: 'Russian',
+    ar: 'Arabic', hi: 'Hindi', nl: 'Dutch', sv: 'Swedish', pl: 'Polish',
+    tr: 'Turkish', vi: 'Vietnamese', th: 'Thai', id: 'Indonesian', cs: 'Czech',
+    da: 'Danish', fi: 'Finnish', no: 'Norwegian', el: 'Greek', he: 'Hebrew',
+    hu: 'Hungarian', ro: 'Romanian', uk: 'Ukrainian', ca: 'Catalan',
   };
-  return names[code] || 'English';
+  return names[code.toLowerCase()] || code.toUpperCase(); // Fallback: código en mayúsculas
 }
 
 /**

@@ -84,7 +84,8 @@ app.onError((err, c) => {
  */
 app.get('/', async (c) => {
   // Permitir preferencias opcionales desde query params
-  const language = (c.req.query('language') as 'es' | 'en') ?? 'es';
+  // Acepta cualquier código de idioma ISO 639-1 (2 letras) para traducción AI
+  const language = (c.req.query('language') as string)?.toLowerCase().slice(0, 2) ?? 'es';
   const cognitiveLevel =
     (c.req.query('cognitiveLevel') as 'simple' | 'medium' | 'advanced') ?? 'simple';
   const audioFriendly = c.req.query('audioFriendly') !== 'false';

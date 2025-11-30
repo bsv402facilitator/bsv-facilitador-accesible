@@ -74,9 +74,10 @@ export type PaymentPayload = z.infer<typeof PaymentPayloadSchema>;
 
 /**
  * Schema para preferencias de accesibilidad del usuario
+ * language: Acepta cualquier código ISO 639-1 (2 letras) para traducción AI ilimitada
  */
 export const AccessibilityPreferencesSchema = z.object({
-  language: z.enum(['es', 'en']).optional().default('es'),
+  language: z.string().length(2).toLowerCase().optional().default('es'),
   cognitiveLevel: z.enum(['simple', 'medium', 'advanced']).optional().default('simple'),
   audioFriendly: z.boolean().optional().default(true),
 });
@@ -174,6 +175,7 @@ export type Hints = z.infer<typeof HintsSchema>;
 
 /**
  * Schema para AccessibleMetadata
+ * language: Acepta cualquier código ISO 639-1 (2 letras) para traducciones AI ilimitadas
  */
 export const AccessibleMetadataSchema = z.object({
   plainLanguage: z.string().max(100, 'Plain language must be ≤100 characters'),
@@ -182,7 +184,7 @@ export const AccessibleMetadataSchema = z.object({
     .array(z.string().max(80, 'Each step must be ≤80 characters'))
     .max(5, 'Maximum 5 steps allowed'),
   hints: HintsSchema,
-  language: z.enum(['es', 'en']),
+  language: z.string().length(2).toLowerCase(),
   audioFriendly: z.boolean(),
   cognitiveLevel: z.enum(['simple', 'medium', 'advanced']),
 });
