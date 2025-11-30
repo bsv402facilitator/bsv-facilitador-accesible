@@ -376,45 +376,71 @@ function createTemplateContent(
 // ============================================================================
 
 function createBeginnerContent(base: CognitiveContentV3): CognitiveContentV3 {
-  return {
+  const simplifiedBase = {
     ...base,
     plainLanguage: simplifyText(base.plainLanguage, 'beginner'),
     explanation: simplifyText(base.explanation, 'beginner'),
-    detailedExplanation: base.explanation,
-    glossary: createGlossary(base),
-    examples: createExamples(base, 'beginner'),
+  };
+
+  return {
+    ...simplifiedBase,
+    detailedExplanation: simplifyText(base.explanation, 'beginner') + ' (En términos simples: como cuando envías dinero por tu app bancaria, pero con Bitcoin)',
+    glossary: createGlossary(simplifiedBase),
+    examples: createExamples(simplifiedBase, 'beginner'),
+    checkpoints: createCheckpoints(simplifiedBase, 'beginner'),
+    memoryAids: [
+      '💡 Piensa en esto como enviar un correo electrónico, pero con dinero',
+      '🔐 El sistema verifica que todo esté correcto antes de enviar',
+      '✅ Si algo falla, te lo explicaremos en palabras simples'
+    ],
   };
 }
 
 function createSimpleContent(base: CognitiveContentV3): CognitiveContentV3 {
-  return {
+  const simplifiedBase = {
     ...base,
+    plainLanguage: simplifyText(base.plainLanguage, 'simple'),
+    explanation: simplifyText(base.explanation, 'simple'),
+  };
+
+  return {
+    ...simplifiedBase,
     detailedExplanation: base.explanation,
-    examples: createExamples(base, 'simple'),
+    examples: createExamples(simplifiedBase, 'simple'),
+    checkpoints: createCheckpoints(simplifiedBase, 'simple'),
+    memoryAids: [
+      'El pago se revisa antes de enviarse',
+      'Cada paso tiene una confirmación',
+    ],
   };
 }
 
 function createMediumContent(base: CognitiveContentV3): CognitiveContentV3 {
   return {
     ...base,
-    detailedExplanation: base.explanation,
+    detailedExplanation: base.explanation + ' El sistema valida la firma digital y los requisitos del protocolo X402.',
+    memoryAids: [
+      'X402 = Protocolo de pago HTTP',
+      'Verificación antes de broadcast',
+    ],
   };
 }
 
 function createAdvancedContent(base: CognitiveContentV3): CognitiveContentV3 {
   return {
     ...base,
-    plainLanguage: technicalizeText(base.plainLanguage),
-    explanation: technicalizeText(base.explanation),
+    plainLanguage: technicalizeText(base.plainLanguage, 'advanced'),
+    explanation: technicalizeText(base.explanation, 'advanced'),
+    detailedExplanation: technicalizeText(base.explanation, 'advanced') + ' Se verifica la firma ECDSA, los outputs según PaymentRequirements, y la validez del formato de transacción BSV.',
   };
 }
 
 function createExpertContent(base: CognitiveContentV3): CognitiveContentV3 {
   return {
     ...base,
-    plainLanguage: technicalizeText(base.plainLanguage),
-    explanation: technicalizeText(base.explanation),
-    detailedExplanation: technicalizeText(base.explanation || base.plainLanguage),
+    plainLanguage: technicalizeText(base.plainLanguage, 'expert'),
+    explanation: technicalizeText(base.explanation, 'expert'),
+    detailedExplanation: technicalizeText(base.explanation || base.plainLanguage, 'expert') + ' Validación criptográfica según BIP-137 (firma de mensaje), verificación de outputs contra PaymentRequirements.payTo y .maxAmountRequired, y parseo de transacción raw según formato BSV (similar a BTC pero con diferentes límites de script).',
   };
 }
 
@@ -671,55 +697,382 @@ function replaceContext(template: string, context: MetadataContext): string {
   return result;
 }
 
-function simplifyText(text: string, _level: 'beginner' | 'simple'): string {
-  // Simplified version - in production, use NLP to simplify
-  return text.replace(/transacción/gi, 'pago').replace(/verificar/gi, 'revisar');
+/**
+ * Simplifica texto para niveles básicos
+ * - beginner: Ultra simple, sin tecnicismos, usa analogías
+ * - simple: Simple pero correcto
+ */
+function simplifyText(text: string, level: 'beginner' | 'simple'): string {
+  let result = text;
+
+  if (level === 'beginner') {
+    // Ultra simplificación con analogías
+    result = result
+      .replace(/transacción/gi, 'pago')
+      .replace(/verificar/gi, 'revisar')
+      .replace(/broadcast/gi, 'enviar')
+      .replace(/blockchain/gi, 'libro de pagos digital')
+      .replace(/satoshis/gi, 'fracciones de Bitcoin')
+      .replace(/dirección/gi, 'cuenta destino')
+      .replace(/UTXO/gi, 'saldo disponible')
+      .replace(/validar/gi, 'comprobar');
+  } else {
+    // Simple - solo términos más comunes
+    result = result
+      .replace(/transacción/gi, 'pago')
+      .replace(/verificar/gi, 'revisar');
+  }
+
+  return result;
 }
 
-function technicalizeText(text: string): string {
-  // Add technical terms
-  return text;
+/**
+ * Tecnifica texto para niveles avanzados
+ * - advanced: Términos técnicos precisos
+ * - expert: Máxima precisión técnica + referencias a protocolos
+ */
+function technicalizeText(text: string, level: 'advanced' | 'expert' = 'advanced'): string {
+  let result = text;
+
+  if (level === 'expert') {
+    // Máxima tecnicidad
+    result = result
+      .replace(/pago/gi, 'transacción BSV')
+      .replace(/revisar/gi, 'validar criptográficamente')
+      .replace(/enviar/gi, 'broadcast a la red P2P')
+      .replace(/libro de pagos/gi, 'blockchain')
+      .replace(/cuenta destino/gi, 'dirección P2PKH')
+      .replace(/comprobar/gi, 'validar según protocolo X402');
+  } else {
+    // Advanced - técnico pero accesible
+    result = result
+      .replace(/pago/gi, 'transacción')
+      .replace(/revisar/gi, 'validar')
+      .replace(/libro de pagos/gi, 'blockchain');
+  }
+
+  return result;
 }
 
-function createGlossary(_content: CognitiveContentV3): Record<string, string> {
-  return {
-    pago: 'Transferencia de dinero digital',
-    Bitcoin: 'Moneda digital descentralizada',
+/**
+ * Crea checkpoints de comprensión para verificar entendimiento del usuario
+ */
+function createCheckpoints(
+  content: CognitiveContentV3,
+  level: 'beginner' | 'simple'
+): ComprehensionCheckpointV3[] {
+  const checkpoints: ComprehensionCheckpointV3[] = [];
+
+  // Checkpoint basado en si es verificación o settlement
+  if (content.plainLanguage.toLowerCase().includes('verificar') || content.plainLanguage.toLowerCase().includes('revisar')) {
+    if (level === 'beginner') {
+      checkpoints.push({
+        question: '¿Qué significa que el pago fue "verificado"?',
+        expectedAnswer: 'Significa que el sistema revisó que todo esté correcto, pero aún NO se ha enviado',
+        hint: 'Piensa en esto como revisar que un sobre tenga la dirección correcta antes de echarlo al buzón'
+      });
+      checkpoints.push({
+        question: '¿Ya se envió el dinero a la blockchain?',
+        expectedAnswer: 'No, solo se verificó. El envío ocurre con el "broadcast"',
+        hint: 'Verificar ≠ Enviar. Son dos pasos diferentes'
+      });
+    } else {
+      checkpoints.push({
+        question: '¿Cuál es la diferencia entre verificar y broadcast?',
+        expectedAnswer: 'Verificar valida la transacción sin enviarla. Broadcast la envía a la red',
+        hint: 'Son dos operaciones distintas en el flujo X402'
+      });
+    }
+  }
+
+  if (content.plainLanguage.toLowerCase().includes('broadcast') || content.plainLanguage.toLowerCase().includes('enviado')) {
+    if (level === 'beginner') {
+      checkpoints.push({
+        question: '¿El dinero ya llegó a su destino?',
+        expectedAnswer: 'Está en camino - aparecerá en el libro de pagos en ~10 minutos',
+        hint: 'Las transacciones Bitcoin se confirman en bloques que aparecen cada 10 minutos aproximadamente'
+      });
+    } else {
+      checkpoints.push({
+        question: '¿Cuánto tiempo tarda la confirmación en la blockchain?',
+        expectedAnswer: 'Aproximadamente 10 minutos (un bloque BSV)',
+        hint: 'Los bloques BSV se minan cada ~10 minutos en promedio'
+      });
+    }
+  }
+
+  return checkpoints;
+}
+
+/**
+ * Crea glosario contextual basado en el contenido y tipo de mensaje
+ */
+function createGlossary(content: CognitiveContentV3): Record<string, string> {
+  const baseGlossary: Record<string, string> = {
+    'Bitcoin': 'Moneda digital descentralizada sin bancos intermediarios',
+    'BSV': 'Bitcoin Satoshi Vision - versión original de Bitcoin',
+    'transacción': 'Transferencia de dinero digital de una persona a otra',
+    'satoshis': 'La unidad más pequeña de Bitcoin (0.00000001 BTC)',
   };
+
+  // Agregar términos específicos según el contenido
+  if (content.plainLanguage.toLowerCase().includes('verificar') || content.plainLanguage.toLowerCase().includes('revisar')) {
+    baseGlossary['verificar'] = 'Comprobar que todo esté correcto antes de enviar el pago';
+    baseGlossary['firma digital'] = 'Como tu firma en un cheque, pero imposible de falsificar';
+  }
+
+  if (content.plainLanguage.toLowerCase().includes('broadcast') || content.plainLanguage.toLowerCase().includes('enviar')) {
+    baseGlossary['broadcast'] = 'Enviar la transacción a la red Bitcoin para que sea procesada';
+    baseGlossary['blockchain'] = 'Libro de contabilidad público donde se registran todos los pagos';
+  }
+
+  if (content.plainLanguage.toLowerCase().includes('dirección') || content.plainLanguage.toLowerCase().includes('cuenta')) {
+    baseGlossary['dirección Bitcoin'] = 'Como un número de cuenta bancaria, pero para Bitcoin';
+    baseGlossary['P2PKH'] = 'Tipo más común de dirección Bitcoin (empieza con 1)';
+  }
+
+  return baseGlossary;
 }
 
+/**
+ * Crea ejemplos contextuales basados en el nivel cognitivo
+ */
 function createExamples(
-  _content: CognitiveContentV3,
-  _level: 'beginner' | 'simple'
+  content: CognitiveContentV3,
+  level: 'beginner' | 'simple'
 ): Array<{ scenario: string; input: string; output: string; explanation: string }> {
-  return [
-    {
-      scenario: 'Pago exitoso',
-      input: 'Transacción válida',
-      output: 'Confirmación',
-      explanation: 'El pago fue procesado correctamente',
-    },
-  ];
+  const examples = [];
+
+  // Ejemplo basado en si es verificación o settlement
+  if (content.plainLanguage.toLowerCase().includes('verificar') || content.plainLanguage.toLowerCase().includes('revisar')) {
+    examples.push({
+      scenario: level === 'beginner' ? 'Revisar un pago antes de enviarlo' : 'Verificación de transacción',
+      input: level === 'beginner' ? 'Quiero enviar 1000 satoshis a mi amigo' : 'Transacción de 1000 sats a dirección válida',
+      output: level === 'beginner' ? '✅ Todo correcto, puedes continuar' : 'Verificación exitosa - transacción válida',
+      explanation: level === 'beginner'
+        ? 'El sistema revisó que la cantidad y la cuenta destino sean correctas'
+        : 'El sistema validó la firma, el monto y la dirección de destino',
+    });
+  }
+
+  if (content.plainLanguage.toLowerCase().includes('broadcast') || content.plainLanguage.toLowerCase().includes('enviar')) {
+    examples.push({
+      scenario: level === 'beginner' ? 'Enviar dinero confirmado' : 'Broadcast de transacción',
+      input: level === 'beginner' ? 'Confirmar envío del pago' : 'Transacción verificada lista para broadcast',
+      output: level === 'beginner' ? '✅ Pago enviado con éxito' : 'Transacción broadcast - txid: abc123...',
+      explanation: level === 'beginner'
+        ? 'Tu pago fue enviado y aparecerá en el libro de pagos digital en unos minutos'
+        : 'La transacción fue propagada a la red BSV y será incluida en el próximo bloque',
+    });
+  }
+
+  // Si no hay ejemplos específicos, dar uno genérico
+  if (examples.length === 0) {
+    examples.push({
+      scenario: level === 'beginner' ? 'Operación completada' : 'Operación exitosa',
+      input: level === 'beginner' ? 'Solicitud procesada' : 'Request válido',
+      output: level === 'beginner' ? '✅ Todo listo' : 'Operación completada exitosamente',
+      explanation: level === 'beginner'
+        ? 'La operación se realizó sin problemas'
+        : 'El sistema procesó la solicitud correctamente',
+    });
+  }
+
+  return examples;
 }
 
 function getTemplatesForLanguage(lang: string): Record<string, TemplateContent> {
-  // Simplified - in production, import from i18n/v3
+  const isSpanish = lang === 'es';
+
+  // Templates contextuales por tipo de mensaje
+  const templates: Record<string, TemplateContent> = {
+    'success.verifyValid': {
+      plainLanguage: isSpanish
+        ? 'Verificación exitosa - el pago es válido'
+        : 'Verification successful - payment is valid',
+      explanation: isSpanish
+        ? 'La transacción cumple con todos los requisitos: monto correcto, dirección válida y formato adecuado.'
+        : 'The transaction meets all requirements: correct amount, valid address and proper format.',
+      stepByStep: isSpanish
+        ? ['Verificamos la firma digital', 'Validamos el monto y dirección', 'Confirmamos el formato de transacción']
+        : ['Verified digital signature', 'Validated amount and address', 'Confirmed transaction format'],
+      hints: {
+        nextSteps: isSpanish
+          ? 'Ahora puedes proceder a hacer el broadcast de la transacción'
+          : 'You can now proceed to broadcast the transaction',
+        commonMistakes: isSpanish
+          ? ['No confundir verificación con broadcast - aún no se ha enviado']
+          : ['Don\'t confuse verification with broadcast - it hasn\'t been sent yet'],
+      },
+    },
+
+    'success.settleSuccess': {
+      plainLanguage: isSpanish
+        ? 'Transacción enviada exitosamente a la blockchain'
+        : 'Transaction successfully broadcast to blockchain',
+      explanation: isSpanish
+        ? 'Tu pago fue enviado a la red Bitcoin SV y será confirmado en el próximo bloque (aproximadamente 10 minutos).'
+        : 'Your payment was sent to the Bitcoin SV network and will be confirmed in the next block (approximately 10 minutes).',
+      stepByStep: isSpanish
+        ? ['Verificamos la transacción', 'Enviamos a la red BSV', 'Esperamos confirmación de la blockchain']
+        : ['Verified transaction', 'Sent to BSV network', 'Waiting for blockchain confirmation'],
+      hints: {
+        nextSteps: isSpanish
+          ? 'Puedes verificar el estado con el txid en un explorador de blockchain'
+          : 'You can check the status with the txid in a blockchain explorer',
+        commonMistakes: isSpanish
+          ? ['La confirmación toma tiempo - no reenvíes la transacción']
+          : ['Confirmation takes time - don\'t resend the transaction'],
+      },
+    },
+
+    'errors.verify.invalidAmount': {
+      plainLanguage: isSpanish
+        ? 'Error: El monto enviado no coincide con lo requerido'
+        : 'Error: Amount sent doesn\'t match required amount',
+      explanation: isSpanish
+        ? 'La transacción contiene un monto diferente al solicitado. Verifica que estés enviando exactamente la cantidad requerida.'
+        : 'The transaction contains a different amount than requested. Verify you\'re sending exactly the required amount.',
+      stepByStep: isSpanish
+        ? ['Revisa el monto requerido', 'Ajusta tu transacción', 'Vuelve a intentar la verificación']
+        : ['Check required amount', 'Adjust your transaction', 'Retry verification'],
+      hints: {
+        ifError: isSpanish
+          ? 'Asegúrate de enviar exactamente {required} satoshis, no {actual}'
+          : 'Make sure to send exactly {required} satoshis, not {actual}',
+        commonMistakes: isSpanish
+          ? ['Olvidar incluir las fees en el cálculo', 'Usar el monto en BTC en lugar de satoshis']
+          : ['Forgetting to include fees in calculation', 'Using BTC amount instead of satoshis'],
+      },
+    },
+
+    'errors.verify.invalidAddress': {
+      plainLanguage: isSpanish
+        ? 'Error: La dirección de destino es incorrecta'
+        : 'Error: Destination address is incorrect',
+      explanation: isSpanish
+        ? 'La transacción no envía los fondos a la dirección requerida. Verifica que la dirección de destino sea exactamente la solicitada.'
+        : 'The transaction doesn\'t send funds to the required address. Verify the destination address matches exactly.',
+      stepByStep: isSpanish
+        ? ['Copia la dirección requerida correctamente', 'Verifica carácter por carácter', 'Recrea la transacción']
+        : ['Copy required address correctly', 'Verify character by character', 'Recreate transaction'],
+      hints: {
+        ifError: isSpanish
+          ? 'Dirección requerida: {required}. Dirección detectada: {actual}'
+          : 'Required address: {required}. Detected address: {actual}',
+        commonMistakes: isSpanish
+          ? ['Copiar mal la dirección', 'Confundir red testnet con mainnet']
+          : ['Copying address incorrectly', 'Confusing testnet with mainnet'],
+      },
+    },
+
+    'errors.verify.invalidFormat': {
+      plainLanguage: isSpanish
+        ? 'Error: Formato de transacción inválido'
+        : 'Error: Invalid transaction format',
+      explanation: isSpanish
+        ? 'La transacción no cumple con el formato válido de Bitcoin SV. Puede estar corrupta o mal construida.'
+        : 'The transaction doesn\'t comply with valid Bitcoin SV format. It may be corrupted or poorly constructed.',
+      stepByStep: isSpanish
+        ? ['Verifica que uses @bsv/sdk', 'Reconstruye la transacción desde cero', 'Valida localmente antes de enviar']
+        : ['Verify you\'re using @bsv/sdk', 'Rebuild transaction from scratch', 'Validate locally before sending'],
+      hints: {
+        ifError: isSpanish
+          ? 'Usa la librería @bsv/sdk para construir transacciones válidas'
+          : 'Use @bsv/sdk library to build valid transactions',
+        commonMistakes: isSpanish
+          ? ['Usar formato raw incorrecto', 'Olvidar firmar la transacción']
+          : ['Using incorrect raw format', 'Forgetting to sign transaction'],
+      },
+    },
+
+    'errors.settle.alreadyBroadcast': {
+      plainLanguage: isSpanish
+        ? 'La transacción ya fue enviada previamente'
+        : 'Transaction was already broadcast previously',
+      explanation: isSpanish
+        ? 'Esta transacción ya existe en la blockchain. No es necesario reenviarla.'
+        : 'This transaction already exists on the blockchain. No need to resend it.',
+      stepByStep: isSpanish
+        ? ['Verifica el estado en un explorador', 'Espera la confirmación', 'No reenvíes']
+        : ['Check status in explorer', 'Wait for confirmation', 'Don\'t resend'],
+      hints: {
+        nextSteps: isSpanish
+          ? 'Consulta el txid en whatsonchain.com para ver el estado'
+          : 'Check the txid on whatsonchain.com to see status',
+      },
+    },
+
+    'errors.settle.networkError': {
+      plainLanguage: isSpanish
+        ? 'Error temporal de red - intenta nuevamente'
+        : 'Temporary network error - try again',
+      explanation: isSpanish
+        ? 'Hubo un problema de conectividad con la red Bitcoin SV. Esto es temporal.'
+        : 'There was a connectivity issue with the Bitcoin SV network. This is temporary.',
+      stepByStep: isSpanish
+        ? ['Espera unos segundos', 'Reintenta el broadcast', 'Si persiste, contacta soporte']
+        : ['Wait a few seconds', 'Retry broadcast', 'If it persists, contact support'],
+      hints: {
+        ifError: isSpanish
+          ? 'Los errores de red suelen resolverse automáticamente'
+          : 'Network errors usually resolve automatically',
+      },
+    },
+
+    'errors.settle.broadcastFailed': {
+      plainLanguage: isSpanish
+        ? 'El broadcast falló - la red rechazó la transacción'
+        : 'Broadcast failed - network rejected transaction',
+      explanation: isSpanish
+        ? 'La red Bitcoin SV rechazó la transacción. Puede ser por fondos insuficientes, doble gasto, o formato inválido.'
+        : 'The Bitcoin SV network rejected the transaction. Could be insufficient funds, double spend, or invalid format.',
+      stepByStep: isSpanish
+        ? ['Verifica tus fondos disponibles', 'Revisa que no hayas gastado esos UTXOs', 'Reconstruye la transacción']
+        : ['Check available funds', 'Verify UTXOs weren\'t spent', 'Rebuild transaction'],
+      hints: {
+        ifError: isSpanish
+          ? 'La causa más común es intentar gastar UTXOs ya gastados'
+          : 'Most common cause is trying to spend already-spent UTXOs',
+        commonMistakes: isSpanish
+          ? ['Doble gasto accidental', 'Fondos insuficientes para fees']
+          : ['Accidental double spend', 'Insufficient funds for fees'],
+      },
+    },
+
+    'success.supportedNetworks': {
+      plainLanguage: isSpanish
+        ? 'Redes soportadas: BSV Mainnet y Testnet'
+        : 'Supported networks: BSV Mainnet and Testnet',
+      explanation: isSpanish
+        ? 'Este facilitador procesa pagos en la red principal de Bitcoin SV (mainnet) y en la red de pruebas (testnet).'
+        : 'This facilitator processes payments on Bitcoin SV main network (mainnet) and test network (testnet).',
+      stepByStep: isSpanish
+        ? ['Usa mainnet para pagos reales', 'Usa testnet para desarrollo y pruebas', 'Verifica la red antes de enviar']
+        : ['Use mainnet for real payments', 'Use testnet for development and testing', 'Verify network before sending'],
+      hints: {
+        nextSteps: isSpanish
+          ? 'Consulta la documentación para ejemplos de uso'
+          : 'Check documentation for usage examples',
+      },
+    },
+  };
+
+  // Default template si no existe uno específico
   const defaultTemplate: TemplateContent = {
-    plainLanguage: lang === 'es' ? 'Operación completada' : 'Operation completed',
-    explanation:
-      lang === 'es'
-        ? 'La operación se completó exitosamente'
-        : 'The operation completed successfully',
-    stepByStep: [lang === 'es' ? 'Paso 1' : 'Step 1', lang === 'es' ? 'Paso 2' : 'Step 2'],
+    plainLanguage: isSpanish ? 'Operación procesada' : 'Operation processed',
+    explanation: isSpanish
+      ? 'La operación se completó según lo esperado'
+      : 'The operation completed as expected',
+    stepByStep: isSpanish
+      ? ['Operación recibida', 'Procesamiento completado']
+      : ['Operation received', 'Processing completed'],
     hints: {},
   };
 
   return {
     default: defaultTemplate,
-    'success.verifyValid': defaultTemplate,
-    'success.settleSuccess': defaultTemplate,
-    'errors.verify.invalidAmount': defaultTemplate,
-    'errors.verify.invalidAddress': defaultTemplate,
+    ...templates,
   };
 }
 
