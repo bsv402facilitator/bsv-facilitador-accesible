@@ -9,7 +9,9 @@ import { zValidator } from '@hono/zod-validator';
 import { cors } from 'hono/cors';
 import {
   VerifyRequestSchemaV2,
+  VerifyRequestSchemaV3,
   SettleRequestSchemaV2,
+  SettleRequestSchemaV3,
   VerifyErrorCodes,
   SettleErrorCodes,
   AccessibilityPreferencesSchemaV2,
@@ -17,16 +19,20 @@ import {
 import type {
   AccessibleResponse,
   AccessibleResponseV2,
+  AccessibleResponseV3,
   VerifyResponse,
   SettleResponse,
   EnvV2,
+  EnvV3,
   AccessibilityPreferencesV2,
+  AccessibilityPreferencesV3,
 } from './types';
 import { verifyTransaction } from './verify';
 import { settleTransaction } from './settle';
-import { createAccessibleResponse, createAccessibleResponseV2 } from './accessibility/metadata';
+import { createAccessibleResponse, createAccessibleResponseV2, createAccessibleResponseV3 } from './accessibility/metadata';
 import { createMetadataWithAI } from './accessibility/ai-metadata';
 import { createMetadataWithAIV2 } from './accessibility/ai-metadata-v2';
+import { createMetadataWithAIV3 } from './accessibility/ai-metadata-v3';
 import { generateWCAGCompliance } from './accessibility/wcag-validator';
 import { logger } from './logger';
 import { handleGlobalError } from '../utils/error-handler';
@@ -43,7 +49,7 @@ import {
   toJSONLD,
 } from './accessibility/format-converters';
 
-const app = new Hono<{ Bindings: EnvV2 }>();
+const app = new Hono<{ Bindings: EnvV2 & EnvV3 }>();
 
 // ============================================================================
 // Middleware
@@ -247,6 +253,137 @@ app.post(
 );
 
 /**
+ * POST /v3/verify - Verificar transacción BSV con accesibilidad universal V3
+ *
+ * V3: Provee TODOS los niveles, TODOS los idiomas, TODAS las variantes
+ */
+app.post(
+  '/v3/verify',
+  zValidator('json', VerifyRequestSchemaV3, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          success: false,
+          error: result.error,
+        },
+        400
+      );
+    }
+    return undefined;
+  }),
+  async (c) => {
+    const requestBody = c.req.valid('json');
+    const { payload, paymentRequirements, accessibilityPreferences } = requestBody;
+
+    // Usar preferencias V3 completas con valores por defecto
+    const preferences: AccessibilityPreferencesV3 = {
+      primaryLanguage: accessibilityPreferences?.primaryLanguage ?? 'es',
+      languages: accessibilityPreferences?.languages ?? ['es', 'en'],
+      dialect: accessibilityPreferences?.dialect,
+      cognitiveLevel: accessibilityPreferences?.cognitiveLevel ?? 'simple',
+      abstractionLevel: accessibilityPreferences?.abstractionLevel ?? 'concrete',
+      includeExamples: accessibilityPreferences?.includeExamples ?? true,
+      includeGlossary: accessibilityPreferences?.includeGlossary ?? true,
+      includeCheckpoints: accessibilityPreferences?.includeCheckpoints ?? false,
+      contrastMode: accessibilityPreferences?.contrastMode ?? 'normal',
+      colorBlindType: accessibilityPreferences?.colorBlindType ?? 'none',
+      fontSize: accessibilityPreferences?.fontSize ?? 'medium',
+      darkMode: accessibilityPreferences?.darkMode ?? false,
+      screenReaderOptimized: accessibilityPreferences?.screenReaderOptimized ?? true,
+      motorInput: accessibilityPreferences?.motorInput,
+      includeKeyboardHints: accessibilityPreferences?.includeKeyboardHints ?? true,
+      includeVoiceHints: accessibilityPreferences?.includeVoiceHints ?? false,
+      audioFriendly: accessibilityPreferences?.audioFriendly ?? true,
+      ttsOptimized: accessibilityPreferences?.ttsOptimized ?? true,
+      preferredFormats: accessibilityPreferences?.preferredFormats ?? ['json'],
+      brailleOptimized: accessibilityPreferences?.brailleOptimized ?? false,
+      includeSemanticMarkup: accessibilityPreferences?.includeSemanticMarkup ?? false,
+      userId: accessibilityPreferences?.userId,
+      adaptiveComplexity: accessibilityPreferences?.adaptiveComplexity ?? false,
+      wcagLevel: accessibilityPreferences?.wcagLevel ?? 'AAA',
+    };
+
+    logger.info('V3 Verify request received', {
+      network: payload.network,
+      scheme: payload.scheme,
+      requiredAmount: paymentRequirements.maxAmountRequired,
+      primaryLanguage: preferences.primaryLanguage,
+      languages: preferences.languages,
+      cognitiveLevel: preferences.cognitiveLevel,
+    });
+
+    // Verificar si V3 está habilitado
+    const v3Enabled = c.env.ACCESSIBILITY_V3_ENABLED === 'true';
+    if (!v3Enabled) {
+      return c.json(
+        {
+          success: false,
+          error: 'V3 Universal Accessibility is not enabled on this server',
+          hint: 'Please use /verify endpoint for V2 accessibility features',
+        },
+        503
+      );
+    }
+
+    // Verificar transacción
+    const verifyResult = verifyTransaction(payload, paymentRequirements);
+
+    // Determinar tipo de mensaje y contexto
+    let messageType: string;
+    let context: Record<string, string> = {};
+
+    if (verifyResult.isValid) {
+      messageType = 'success.verifyValid';
+      context = {
+        amount: paymentRequirements.maxAmountRequired,
+        address: paymentRequirements.payTo,
+      };
+    } else {
+      const invalidReason = verifyResult.invalidReason;
+
+      switch (invalidReason) {
+        case VerifyErrorCodes.INVALID_AMOUNT:
+          messageType = 'errors.verify.invalidAmount';
+          context = {
+            required: paymentRequirements.maxAmountRequired,
+            actual: '0',
+          };
+          break;
+
+        case VerifyErrorCodes.INVALID_ADDRESS:
+          messageType = 'errors.verify.invalidAddress';
+          context = {
+            required: paymentRequirements.payTo,
+            actual: 'desconocida',
+          };
+          break;
+
+        case VerifyErrorCodes.INVALID_FORMAT:
+        default:
+          messageType = 'errors.verify.invalidFormat';
+          context = {};
+          break;
+      }
+    }
+
+    // Generar metadata V3 universal con AI
+    const metadata = await createMetadataWithAIV3(
+      messageType,
+      context,
+      preferences,
+      c.env
+    );
+
+    const response: AccessibleResponseV3<VerifyResponse> = createAccessibleResponseV3(
+      verifyResult,
+      metadata
+    );
+
+    return c.json(response);
+  }
+);
+
+/**
  * POST /settle - Broadcastear transacción BSV a blockchain (User Story 2)
  *
  * T068, T069, T070
@@ -378,6 +515,131 @@ app.post(
       default:
         return c.json(response);
     }
+  }
+);
+
+/**
+ * POST /v3/settle - Broadcastear transacción BSV con accesibilidad universal V3
+ *
+ * V3: Provee TODOS los niveles, TODOS los idiomas, TODAS las variantes
+ */
+app.post(
+  '/v3/settle',
+  zValidator('json', SettleRequestSchemaV3, (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          success: false,
+          error: result.error,
+        },
+        400
+      );
+    }
+    return undefined;
+  }),
+  async (c) => {
+    const requestBody = c.req.valid('json');
+    const { payload, paymentRequirements, accessibilityPreferences } = requestBody;
+
+    // Usar preferencias V3 completas con valores por defecto
+    const preferences: AccessibilityPreferencesV3 = {
+      primaryLanguage: accessibilityPreferences?.primaryLanguage ?? 'es',
+      languages: accessibilityPreferences?.languages ?? ['es', 'en'],
+      dialect: accessibilityPreferences?.dialect,
+      cognitiveLevel: accessibilityPreferences?.cognitiveLevel ?? 'simple',
+      abstractionLevel: accessibilityPreferences?.abstractionLevel ?? 'concrete',
+      includeExamples: accessibilityPreferences?.includeExamples ?? true,
+      includeGlossary: accessibilityPreferences?.includeGlossary ?? true,
+      includeCheckpoints: accessibilityPreferences?.includeCheckpoints ?? false,
+      contrastMode: accessibilityPreferences?.contrastMode ?? 'normal',
+      colorBlindType: accessibilityPreferences?.colorBlindType ?? 'none',
+      fontSize: accessibilityPreferences?.fontSize ?? 'medium',
+      darkMode: accessibilityPreferences?.darkMode ?? false,
+      screenReaderOptimized: accessibilityPreferences?.screenReaderOptimized ?? true,
+      motorInput: accessibilityPreferences?.motorInput,
+      includeKeyboardHints: accessibilityPreferences?.includeKeyboardHints ?? true,
+      includeVoiceHints: accessibilityPreferences?.includeVoiceHints ?? false,
+      audioFriendly: accessibilityPreferences?.audioFriendly ?? true,
+      ttsOptimized: accessibilityPreferences?.ttsOptimized ?? true,
+      preferredFormats: accessibilityPreferences?.preferredFormats ?? ['json'],
+      brailleOptimized: accessibilityPreferences?.brailleOptimized ?? false,
+      includeSemanticMarkup: accessibilityPreferences?.includeSemanticMarkup ?? false,
+      userId: accessibilityPreferences?.userId,
+      adaptiveComplexity: accessibilityPreferences?.adaptiveComplexity ?? false,
+      wcagLevel: accessibilityPreferences?.wcagLevel ?? 'AAA',
+    };
+
+    logger.info('V3 Settle request received', {
+      network: payload.network,
+      scheme: payload.scheme,
+      primaryLanguage: preferences.primaryLanguage,
+      languages: preferences.languages,
+      cognitiveLevel: preferences.cognitiveLevel,
+    });
+
+    // Verificar si V3 está habilitado
+    const v3Enabled = c.env.ACCESSIBILITY_V3_ENABLED === 'true';
+    if (!v3Enabled) {
+      return c.json(
+        {
+          success: false,
+          error: 'V3 Universal Accessibility is not enabled on this server',
+          hint: 'Please use /settle endpoint for V2 accessibility features',
+        },
+        503
+      );
+    }
+
+    // Broadcastear transacción
+    const settleResult = await settleTransaction(payload, paymentRequirements);
+
+    // Determinar tipo de mensaje y contexto
+    let messageType: string;
+    let context: Record<string, string> = {};
+
+    if (settleResult.success) {
+      messageType = 'success.settleSuccess';
+      context = {
+        txid: settleResult.transaction || '',
+      };
+    } else {
+      const errorReason = settleResult.errorReason;
+
+      switch (errorReason) {
+        case SettleErrorCodes.ALREADY_BROADCAST:
+          messageType = 'errors.settle.alreadyBroadcast';
+          context = {
+            txid: settleResult.transaction || '',
+          };
+          break;
+
+        case SettleErrorCodes.NETWORK_ERROR:
+          messageType = 'errors.settle.networkError';
+          context = {};
+          break;
+
+        case SettleErrorCodes.BROADCAST_FAILED:
+        default:
+          messageType = 'errors.settle.broadcastFailed';
+          context = {};
+          break;
+      }
+    }
+
+    // Generar metadata V3 universal con AI
+    const metadata = await createMetadataWithAIV3(
+      messageType,
+      context,
+      preferences,
+      c.env
+    );
+
+    const response: AccessibleResponseV3<SettleResponse> = createAccessibleResponseV3(
+      settleResult,
+      metadata
+    );
+
+    return c.json(response);
   }
 );
 

@@ -40,8 +40,6 @@ const OPENAI_TIMEOUT = 10000; // 10 seconds (increased for V3 complexity)
 const DEFAULT_CACHE_TTL_V3 = 86400; // 24 hours for V3 (large responses)
 
 const COGNITIVE_LEVELS: CognitiveLevelV3[] = ['beginner', 'simple', 'medium', 'advanced', 'expert'];
-const ABSTRACTION_LEVELS: AbstractionLevelV3[] = ['concrete', 'mixed', 'abstract'];
-const DEFAULT_LANGUAGES = ['es', 'en']; // Always include these
 
 /**
  * Scenario descriptions for OpenAI prompts
@@ -357,7 +355,7 @@ function createTemplateContent(
 ): CognitiveContentV3 {
   // Simplified template - in production, use i18n templates
   const templates = getTemplatesForLanguage(language);
-  const template = (templates[messageType] || templates.default) as TemplateContent;
+  const template = (templates[messageType] || templates['default']) as TemplateContent;
 
   return {
     plainLanguage: replaceContext(template.plainLanguage, context),
@@ -429,15 +427,19 @@ function createExpertContent(base: CognitiveContentV3): CognitiveContentV3 {
  */
 async function buildUniversalMetadataV3(
   languageContent: Record<string, LanguageContentV3>,
-  context: MetadataContext,
+  _context: MetadataContext,
   preferences: AccessibilityPreferencesV3,
   generatedBy: 'ai' | 'template' | 'hybrid',
   cacheHit: boolean,
-  env: EnvV3
+  _env: EnvV3
 ): Promise<UniversalAccessibilityMetadataV3> {
   // Use primary language as base for content section
   const primaryLang = preferences.primaryLanguage || 'es';
-  const primaryContent = languageContent[primaryLang] || languageContent.es;
+  const primaryContent = languageContent[primaryLang] || languageContent['es'];
+
+  if (!primaryContent) {
+    throw new Error(`No content found for primary language: ${primaryLang}`);
+  }
 
   // Build content section (cognitive + abstraction levels)
   const content: ContentSectionV3 = {
@@ -455,7 +457,7 @@ async function buildUniversalMetadataV3(
   const audio = buildAudioSection(content);
 
   // Build formats section (all formats)
-  const formats = await buildFormatsSection(content, languageContent, env);
+  const formats = await buildFormatsSection(content, languageContent, _env);
 
   // Build recommendations
   const recommendations = {
@@ -600,7 +602,7 @@ function buildAudioSection(content: ContentSectionV3): AudioSectionV3 {
 async function buildFormatsSection(
   content: ContentSectionV3,
   languages: Record<string, LanguageContentV3>,
-  env: EnvV3
+  _env: EnvV3
 ): Promise<FormatsSectionV3> {
   const baseData = {
     content: content.byLevel.simple,
@@ -669,7 +671,7 @@ function replaceContext(template: string, context: MetadataContext): string {
   return result;
 }
 
-function simplifyText(text: string, level: 'beginner' | 'simple'): string {
+function simplifyText(text: string, _level: 'beginner' | 'simple'): string {
   // Simplified version - in production, use NLP to simplify
   return text.replace(/transacción/gi, 'pago').replace(/verificar/gi, 'revisar');
 }
@@ -679,7 +681,7 @@ function technicalizeText(text: string): string {
   return text;
 }
 
-function createGlossary(content: CognitiveContentV3): Record<string, string> {
+function createGlossary(_content: CognitiveContentV3): Record<string, string> {
   return {
     pago: 'Transferencia de dinero digital',
     Bitcoin: 'Moneda digital descentralizada',
@@ -687,8 +689,8 @@ function createGlossary(content: CognitiveContentV3): Record<string, string> {
 }
 
 function createExamples(
-  content: CognitiveContentV3,
-  level: 'beginner' | 'simple'
+  _content: CognitiveContentV3,
+  _level: 'beginner' | 'simple'
 ): Array<{ scenario: string; input: string; output: string; explanation: string }> {
   return [
     {

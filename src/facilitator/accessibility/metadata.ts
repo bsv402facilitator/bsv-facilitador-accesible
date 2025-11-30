@@ -6,7 +6,9 @@ import type {
   AccessibleMetadata,
   AccessibleResponse,
   AccessibleResponseV2,
+  AccessibleResponseV3,
   UniversalAccessibilityMetadataV2,
+  UniversalAccessibilityMetadataV3,
   WCAGComplianceMetadataV2,
 } from '../types';
 
@@ -97,5 +99,22 @@ export function createAccessibleResponseV2<T>(
     data,
     accessibility: metadata,
     wcag,
+  };
+}
+
+/**
+ * Crea un AccessibleResponseV3 envolviendo data con metadata V3 universal
+ *
+ * @param data - Response core (VerifyResponse, SettleResponse, etc)
+ * @param metadata - Universal Accessibility Metadata V3 (all levels, all languages, all variants)
+ * @returns AccessibleResponseV3 con data y accessibility universal
+ */
+export function createAccessibleResponseV3<T>(
+  data: T,
+  metadata: UniversalAccessibilityMetadataV3
+): AccessibleResponseV3<T> {
+  return {
+    data,
+    accessibility: metadata,
   };
 }

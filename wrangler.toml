@@ -40,6 +40,9 @@ MULTILANG_ENABLED = "true"          # AI-powered unlimited language support
 FORMAT_CONVERSION_ENABLED = "true"   # XML, HTML, Markdown, Plain Text, JSON-LD
 ADAPTIVE_COMPLEXITY_ENABLED = "false" # Experimental - postponed to V2.1
 READING_LEVEL_ANALYSIS = "true"      # Flesch-Kincaid + WCAG compliance
+# V3 Universal Accessibility - Development (start disabled)
+ACCESSIBILITY_V3_ENABLED = "false"   # V3 endpoints: /v3/verify, /v3/settle
+V3_ROLLOUT_PERCENTAGE = "0"          # Gradual rollout 0-100%
 
 [[env.development.kv_namespaces]]
 binding = "METADATA_CACHE"
@@ -73,6 +76,9 @@ MULTILANG_ENABLED = "true"          # AI-powered unlimited language support
 FORMAT_CONVERSION_ENABLED = "true"   # XML, HTML, Markdown, Plain Text, JSON-LD
 ADAPTIVE_COMPLEXITY_ENABLED = "false" # Experimental - postponed to V2.1
 READING_LEVEL_ANALYSIS = "true"      # Flesch-Kincaid + WCAG compliance
+# V3 Universal Accessibility - Production (gradual rollout)
+ACCESSIBILITY_V3_ENABLED = "true"    # V3 endpoints: /v3/verify, /v3/settle
+V3_ROLLOUT_PERCENTAGE = "100"        # Start at 100% for production (fully enabled)
 
 [[env.production.kv_namespaces]]
 binding = "METADATA_CACHE"

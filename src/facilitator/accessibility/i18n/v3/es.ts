@@ -7,7 +7,7 @@
  * - Enhanced content structure for LLM clients
  */
 
-import type { CognitiveContentV3, AbstractionContentV3 } from '../../types';
+import type { CognitiveContentV3, AbstractionContentV3 } from '../../../types';
 
 /**
  * V3 Message Catalog - Complete structure for ONE message type
